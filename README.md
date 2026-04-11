@@ -97,7 +97,6 @@ greytoast/
 This tool is intended for:
 
 - Educational use  
-- Administrative automation  
 - Authorized security testing  
 
 Do **not** use this tool for unauthorized phishing, deception, or malicious activity.
